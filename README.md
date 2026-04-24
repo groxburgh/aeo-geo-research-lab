@@ -44,7 +44,7 @@ The SQLite database and monthly reports are committed to this repo on purpose. T
 Requirements: Python 3.12, API keys for OpenAI, Perplexity, and Anthropic.
 
 ```bash
-git clone https://github.com/<owner>/aeo-geo-research-lab.git
+git clone https://github.com/groxburgh/aeo-geo-research-lab.git
 cd aeo-geo-research-lab
 cp .env.example .env          # add your API keys to .env
 pip install -r requirements.txt

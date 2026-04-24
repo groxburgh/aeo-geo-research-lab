@@ -436,7 +436,7 @@ The `NOTION_REVIEW_DATABASE_ID` database must be configured with these propertie
 | `UniqueCitationDomains` | Number | Count of distinct `domain` values in `citations` for this month |
 | `TotalCostUSD` | Number | Sum of `cost_usd` from `costs`, rounded to 4 decimal places |
 | `BudgetBreached` | Checkbox | `true` if `TotalCostUSD >= MONTHLY_BUDGET_USD` |
-| `ReportURL` | URL | GitHub URL to committed report: `https://github.com/<owner>/<repo>/blob/main/reports/YYYY-MM.md` |
+| `ReportURL` | URL | GitHub URL to committed report: `https://github.com/groxburgh/aeo-geo-research-lab/blob/main/reports/YYYY-MM.md` |
 | `Status` | Select | `"Needs Review"` on creation; manually changed to `"Approved"` or `"Flagged"` |
 | `CreatedAt` | Date | ISO-8601 UTC timestamp of Notion page creation |
 

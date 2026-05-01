@@ -27,27 +27,34 @@ AI behavioral rules live in this file only. Do not duplicate them in other docs.
 
 ## Tech Stack
 
-- **Language:** Python
-- **Dependencies:** `openai`, `anthropic`, `requests`, `python-dotenv`, `pyyaml` (pinned in `requirements.txt`)
+- **Language:** Python 3.12
+- **Production dependencies:** `openai`, `anthropic`, `requests`, `python-dotenv`, `pyyaml` (pinned in `requirements.txt`)
+- **Dev dependencies:** `pytest`, `pytest-cov`, `responses` (HTTP mock for Perplexity tests), `ruff` (lint + format; no separate black/flake8) — pinned in `requirements-dev.txt`
 - **Data persistence:** SQLite at `/data/observatory.db` — committed to repo on purpose, never add to `.gitignore`
 - **Orchestration:** GitHub Actions scheduled monthly workflow
-- **External APIs:** OpenAI (ChatGPT + web search), Perplexity Sonar, Anthropic (Claude + web search), Notion (review gate)
-- **Config:** `prompts.yaml` for query definitions; `.env` for secrets (never committed)
+- **External APIs:** OpenAI (ChatGPT + web search via Responses API), Perplexity Sonar (plain REST), Anthropic (Claude + web search tool), Notion (review gate only)
+- **Config:** `prompts/prompts.yaml` for query definitions; `.env` for secrets (never committed)
 
 ---
 
 ## Commands
 
-Once implemented, the expected commands are:
-
 ```bash
-pip install -r requirements.txt        # install dependencies
-python run.py test                     # dry-run single query through all three engines
-python run.py run                      # full monthly research run
+pip install -r requirements.txt        # production dependencies
+pip install -r requirements-dev.txt    # add dev/test tools
+python run.py test                     # pre-flight: validates env vars, prompts.yaml, DB schema, and one live call per engine
+python run.py run                      # full monthly research sweep
 python run.py report                   # generate markdown report from latest run data
+python run.py report --notify          # generate report and post summary to Notion
+pytest                                 # run all tests
+pytest tests/test_budget.py           # run a single test file
+ruff check src/                        # lint
+ruff format src/                       # format
 ```
 
-For the GitHub Actions workflow, secrets must be set in repo settings: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `PERPLEXITY_API_KEY`, `NOTION_API_KEY`.
+`run.py` exit codes: `0` success, `1` unhandled exception or pre-flight failure, `2` budget circuit breaker triggered.
+
+For the GitHub Actions workflow, secrets must be set in repo settings: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `PERPLEXITY_API_KEY`, `NOTION_API_KEY`, `NOTION_REVIEW_DATABASE_ID`.
 
 ---
 
@@ -55,13 +62,39 @@ For the GitHub Actions workflow, secrets must be set in repo settings: `ANTHROPI
 
 The pipeline has five logical layers:
 
-1. **Query layer** — `prompts.yaml` defines 50–60 queries across three ICP zones. Five queries run monthly with rewording variants (prompt stability sub-study).
+1. **Query layer** — `prompts/prompts.yaml` defines 50–60 queries across three ICP zones. Five queries run monthly with rewording variants (prompt stability sub-study).
 2. **Engine integrations** — One module per engine (ChatGPT, Perplexity, Claude). Each normalizes its response to a common schema before writing to SQLite.
 3. **Data layer** — SQLite tables: `runs`, `citations`, `queries`, `costs`. Schema defined in `TECH-SPEC.md`.
 4. **Report generation** — Template-based markdown reports written to `/reports/YYYY-MM.md`, auto-generated and committed, human-reviewed via Notion before external announcement.
 5. **Budget circuit breaker** — Enforces $40/month API cost cap. Any run that would exceed the cap must halt and alert rather than continue.
 
 Three runs minimum per query per engine per month is a research integrity requirement, not a preference.
+
+### Module responsibilities (`src/`)
+
+| File | Responsibility |
+|---|---|
+| `run.py` | Sole CLI entry point. `sys.argv` only — no Click/argparse. |
+| `src/runner.py` | Orchestration: loads queries, calls engines, manages the 3-run loop |
+| `src/engines/base.py` | Abstract `Engine` base class; all engines implement this interface |
+| `src/engines/openai_engine.py` | ChatGPT via Responses API (`client.responses.create`); NOT Chat Completions |
+| `src/engines/perplexity_engine.py` | Perplexity Sonar via plain `requests`; no SDK |
+| `src/engines/anthropic_engine.py` | Claude via `client.messages.create` with `web_search_20250305` tool |
+| `src/models.py` | `NormalizedResult` and `Citation` dataclasses — the engine↔db boundary |
+| `src/db.py` | All SQLite reads and writes. No SQL lives outside this file. |
+| `src/budget.py` | Cost accumulator and circuit breaker; checked before every API call |
+| `src/report.py` | Reads from SQLite; writes `/reports/YYYY-MM.md` |
+| `src/notifier.py` | Notion POST only (review gate). Never reads from Notion. Failure is non-fatal. |
+| `src/schema.sql` | DDL applied by `db.py` on every connection via `CREATE TABLE IF NOT EXISTS` |
+| `tests/fixtures/` | Recorded API responses (JSON) for unit tests; no live calls in tests |
+
+### Key invariants
+
+- **All SQL lives in `db.py`.** No raw queries in runner, engines, or report.
+- **`NormalizedResult` is the only type `db.py` accepts.** Engine-specific response objects never cross this boundary.
+- **`yaml.safe_load()` always.** Never `yaml.load()` anywhere.
+- **Schema changes are append-only.** Add columns with defaults; never drop. Breaking changes require a new table name and a `decisions-log.md` entry.
+- **Pricing constants are per-engine.** `INPUT_COST_PER_TOKEN` / `OUTPUT_COST_PER_TOKEN` defined in each engine file, not a shared config.
 
 ---
 

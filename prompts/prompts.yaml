@@ -1,0 +1,619 @@
+# AEO/GEO Research Observatory — Query Set v1
+# 54 canonical queries across three zones + 5 stability-test variants = 59 total
+# Locked for first run. Any future changes must be versioned and noted in METHODOLOGY.md.
+#
+# Fields:
+#   id          — unique slug, lowercase, hyphens only; used as query_id in SQLite
+#   zone        — "content-operations" | "b2b-saas-fintech" | "aeo-geo"
+#   topic       — human-readable label used in reports
+#   prompt      — exact text sent verbatim to all three engines; no templating
+#   query_type  — commercial | informational | comparison | how-to | navigational
+#   is_variant  — false for canonical queries; true for stability-test rewording variants
+#   variant_of  — null unless is_variant=true; must match a canonical query id
+#   notes       — optional; never sent to engines
+
+# ─────────────────────────────────────────────────────────────
+# ZONE 1: CONTENT OPERATIONS AND MARKETING  (18 canonical)
+# ─────────────────────────────────────────────────────────────
+
+- id: "co-what-is-content-ops"
+  zone: "content-operations"
+  topic: "Content Operations Definition"
+  prompt: |
+    What is content operations and why do B2B technology companies invest in it?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: "Stability test query — run with variant co-what-is-content-ops-v2 monthly"
+
+- id: "co-leading-platforms"
+  zone: "content-operations"
+  topic: "Content Operations Platforms"
+  prompt: |
+    Which content management and operations platforms are most recommended for mid-market B2B SaaS companies?
+  query_type: commercial
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "co-roi-measurement"
+  zone: "content-operations"
+  topic: "Content Marketing ROI"
+  prompt: |
+    How do B2B SaaS companies measure the ROI of their content marketing programs?
+  query_type: how-to
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "co-ai-impact-traffic"
+  zone: "content-operations"
+  topic: "AI Search Impact on Organic Traffic"
+  prompt: |
+    How is AI-generated search changing organic traffic patterns for B2B content-led companies?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "co-build-function"
+  zone: "content-operations"
+  topic: "Building a Content Ops Function"
+  prompt: |
+    How do you build a content operations function from scratch at a Series B SaaS company?
+  query_type: how-to
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "co-vs-content-marketing"
+  zone: "content-operations"
+  topic: "Content Ops vs Content Marketing"
+  prompt: |
+    What is the difference between content operations and content marketing?
+  query_type: comparison
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "co-workflow-tools"
+  zone: "content-operations"
+  topic: "Editorial Workflow Tools"
+  prompt: |
+    What tools do enterprise content operations teams use to manage editorial workflows and content approvals?
+  query_type: commercial
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "co-metrics-kpis"
+  zone: "content-operations"
+  topic: "Content Operations KPIs"
+  prompt: |
+    What are the most important content operations KPIs and metrics for a B2B SaaS company?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "co-agency-landscape"
+  zone: "content-operations"
+  topic: "Content Operations Agencies"
+  prompt: |
+    Which agencies and consultants specialize in B2B content operations strategy?
+  query_type: navigational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "co-ai-content-quality"
+  zone: "content-operations"
+  topic: "AI vs Human Content for B2B"
+  prompt: |
+    How does AI-generated content compare to expert-written content for B2B lead generation?
+  query_type: comparison
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "co-content-led-growth"
+  zone: "content-operations"
+  topic: "Content-Led Growth"
+  prompt: |
+    What is content-led growth and which B2B SaaS companies are known for executing it well?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "co-distribution-strategy"
+  zone: "content-operations"
+  topic: "B2B Content Distribution"
+  prompt: |
+    How do B2B SaaS companies distribute content effectively across owned, earned, and paid channels?
+  query_type: how-to
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "co-seo-vs-geo"
+  zone: "content-operations"
+  topic: "SEO vs GEO for B2B Content"
+  prompt: |
+    How should B2B content teams balance traditional SEO with generative engine optimization?
+  query_type: comparison
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "co-repurposing"
+  zone: "content-operations"
+  topic: "Content Repurposing Strategy"
+  prompt: |
+    What are effective strategies for repurposing long-form B2B content across multiple channels?
+  query_type: how-to
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "co-team-structure"
+  zone: "content-operations"
+  topic: "Content Ops Team Structure"
+  prompt: |
+    How are content operations teams typically structured at mid-market B2B SaaS companies?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "co-sme-capture"
+  zone: "content-operations"
+  topic: "Subject Matter Expert Content"
+  prompt: |
+    How do content operations teams effectively capture and scale subject matter expert knowledge?
+  query_type: how-to
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "co-thought-leadership"
+  zone: "content-operations"
+  topic: "B2B Thought Leadership Programs"
+  prompt: |
+    Which B2B SaaS companies are most cited as examples of successful thought leadership content programs?
+  query_type: commercial
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "co-content-personalization"
+  zone: "content-operations"
+  topic: "B2B Content Personalization"
+  prompt: |
+    How do B2B companies use content personalization to improve pipeline conversion rates?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+# ─────────────────────────────────────────────────────────────
+# ZONE 2: B2B SAAS AND FINTECH  (18 canonical)
+# ─────────────────────────────────────────────────────────────
+
+- id: "saas-ai-marketing-tools"
+  zone: "b2b-saas-fintech"
+  topic: "AI Marketing Tools for B2B SaaS"
+  prompt: |
+    Which AI-powered marketing tools are most recommended for B2B SaaS companies?
+  query_type: commercial
+  is_variant: false
+  variant_of: null
+  notes: "Stability test query — run with variant saas-ai-marketing-tools-v2 monthly"
+
+- id: "saas-crm-comparison"
+  zone: "b2b-saas-fintech"
+  topic: "CRM Platform Comparison"
+  prompt: |
+    How do Salesforce, HubSpot, and Pipedrive compare for mid-market B2B SaaS sales teams?
+  query_type: comparison
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "saas-plg-definition"
+  zone: "b2b-saas-fintech"
+  topic: "Product-Led Growth Definition"
+  prompt: |
+    What is product-led growth and which B2B SaaS companies are known for executing it well?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "saas-customer-success"
+  zone: "b2b-saas-fintech"
+  topic: "Customer Success Platforms"
+  prompt: |
+    What are the top customer success platforms recommended for B2B SaaS companies with 100 to 500 employees?
+  query_type: commercial
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "saas-revenue-intelligence"
+  zone: "b2b-saas-fintech"
+  topic: "Revenue Intelligence Tools"
+  prompt: |
+    Which revenue intelligence and sales forecasting tools are most cited for B2B SaaS sales teams?
+  query_type: commercial
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "saas-plg-vs-slg"
+  zone: "b2b-saas-fintech"
+  topic: "PLG vs SLG"
+  prompt: |
+    What is the difference between product-led growth and sales-led growth for B2B SaaS companies?
+  query_type: comparison
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "saas-churn-reduction"
+  zone: "b2b-saas-fintech"
+  topic: "SaaS Churn Reduction"
+  prompt: |
+    How do high-performing B2B SaaS companies reduce customer churn below five percent annually?
+  query_type: how-to
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "saas-pricing-models"
+  zone: "b2b-saas-fintech"
+  topic: "B2B SaaS Pricing Models"
+  prompt: |
+    What are the most common and effective pricing models used by successful B2B SaaS companies?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "saas-category-creation"
+  zone: "b2b-saas-fintech"
+  topic: "SaaS Category Creation"
+  prompt: |
+    How do B2B SaaS companies successfully create and own a new product category?
+  query_type: how-to
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "saas-onboarding-best"
+  zone: "b2b-saas-fintech"
+  topic: "B2B SaaS Onboarding Best Practices"
+  prompt: |
+    What are best practices for B2B SaaS customer onboarding that improve time-to-value for new customers?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "fintech-compliance-tools"
+  zone: "b2b-saas-fintech"
+  topic: "Fintech Compliance Automation"
+  prompt: |
+    Which compliance automation tools are most recommended for fintech startups navigating financial regulations?
+  query_type: commercial
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "fintech-payments-leaders"
+  zone: "b2b-saas-fintech"
+  topic: "B2B Payments Infrastructure Leaders"
+  prompt: |
+    Which companies are most prominently featured when someone asks about B2B payments infrastructure?
+  query_type: navigational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "fintech-embedded-finance"
+  zone: "b2b-saas-fintech"
+  topic: "Embedded Finance"
+  prompt: |
+    What is embedded finance and which fintech companies are most cited as leaders in this space?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "fintech-fraud-detection"
+  zone: "b2b-saas-fintech"
+  topic: "Fintech Fraud Detection Tools"
+  prompt: |
+    What are the most recommended fraud detection and prevention tools for fintech companies?
+  query_type: commercial
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "fintech-open-banking"
+  zone: "b2b-saas-fintech"
+  topic: "Open Banking"
+  prompt: |
+    What is open banking and how are B2B fintech companies building products on top of open banking APIs?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "saas-competitive-intel"
+  zone: "b2b-saas-fintech"
+  topic: "Competitive Intelligence for SaaS"
+  prompt: |
+    How do B2B SaaS marketing teams conduct and act on competitive intelligence effectively?
+  query_type: how-to
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "saas-analyst-relations"
+  zone: "b2b-saas-fintech"
+  topic: "Analyst Relations Programs"
+  prompt: |
+    How do B2B SaaS companies build effective analyst relations programs with Gartner and Forrester?
+  query_type: how-to
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "saas-event-marketing"
+  zone: "b2b-saas-fintech"
+  topic: "B2B Event Marketing ROI"
+  prompt: |
+    How do B2B SaaS companies measure the ROI of event and conference marketing?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+# ─────────────────────────────────────────────────────────────
+# ZONE 3: AEO / GEO  (18 canonical)
+# ─────────────────────────────────────────────────────────────
+
+- id: "geo-what-is"
+  zone: "aeo-geo"
+  topic: "GEO Definition"
+  prompt: |
+    What is generative engine optimization and how is it different from traditional SEO?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: "Stability test query — run with variant geo-what-is-v2 monthly"
+
+- id: "geo-citation-factors"
+  zone: "aeo-geo"
+  topic: "AI Citation Factors"
+  prompt: |
+    What factors determine whether a source gets cited in AI-generated search answers?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "geo-optimize-content"
+  zone: "aeo-geo"
+  topic: "Optimizing Content for AI Answers"
+  prompt: |
+    How do you optimize B2B content to appear in AI-generated answers from ChatGPT, Perplexity, and Claude?
+  query_type: how-to
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "geo-measure-visibility"
+  zone: "aeo-geo"
+  topic: "Measuring AI Search Visibility"
+  prompt: |
+    How do you measure your brand or content's visibility in AI-generated search results?
+  query_type: how-to
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "geo-agencies"
+  zone: "aeo-geo"
+  topic: "GEO Agencies and Consultants"
+  prompt: |
+    Which agencies and consultants specialize in answer engine optimization and generative engine optimization for B2B companies?
+  query_type: commercial
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "geo-tools"
+  zone: "aeo-geo"
+  topic: "AI Visibility Tracking Tools"
+  prompt: |
+    What tools are available for tracking brand visibility and citation rates in AI search engines?
+  query_type: commercial
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "geo-chatgpt-vs-perplexity"
+  zone: "aeo-geo"
+  topic: "Citation Behavior Across Engines"
+  prompt: |
+    How do ChatGPT, Perplexity, and Claude differ in their approach to citing sources in responses?
+  query_type: comparison
+  is_variant: false
+  variant_of: null
+  notes: "Stability test query — run with variant geo-chatgpt-vs-perplexity-v2 monthly"
+
+- id: "geo-content-formats"
+  zone: "aeo-geo"
+  topic: "Content Formats for AI Citation"
+  prompt: |
+    What content formats and page structures are most likely to be cited by AI search engines?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "geo-eeat"
+  zone: "aeo-geo"
+  topic: "E-E-A-T and AI Citation"
+  prompt: |
+    How does Google's E-E-A-T framework relate to being cited by AI search engines like ChatGPT and Perplexity?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "geo-vs-seo-strategy"
+  zone: "aeo-geo"
+  topic: "GEO vs SEO as B2B Strategy"
+  prompt: |
+    Should B2B marketing teams prioritize GEO over traditional SEO, or treat them as complementary strategies?
+  query_type: comparison
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "geo-structured-data"
+  zone: "aeo-geo"
+  topic: "Structured Data and AI Citation"
+  prompt: |
+    How does structured data and schema markup influence AI search engine citation behavior?
+  query_type: how-to
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "geo-brand-mentions"
+  zone: "aeo-geo"
+  topic: "Brand Mentions in AI Answers"
+  prompt: |
+    How do unlinked brand mentions affect a company's visibility in AI-generated search results?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "geo-b2b-case-studies"
+  zone: "aeo-geo"
+  topic: "B2B GEO Success Cases"
+  prompt: |
+    Which B2B companies are most frequently cited as examples of successful generative engine optimization strategies?
+  query_type: navigational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "geo-prompt-sensitivity"
+  zone: "aeo-geo"
+  topic: "AI Citation Prompt Sensitivity"
+  prompt: |
+    How sensitive are AI search engine citations to minor variations in how a question is phrased?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "geo-original-research"
+  zone: "aeo-geo"
+  topic: "Original Research and AI Citation"
+  prompt: |
+    How does publishing original research affect a B2B company's citation rate in AI search engines?
+  query_type: how-to
+  is_variant: false
+  variant_of: null
+  notes: "Stability test query — run with variant geo-original-research-v2 monthly"
+
+- id: "geo-competitors"
+  zone: "aeo-geo"
+  topic: "GEO and AEO Competitive Landscape"
+  prompt: |
+    Which companies and tools are most prominently featured when someone searches for GEO or AEO services?
+  query_type: commercial
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "geo-link-building"
+  zone: "aeo-geo"
+  topic: "Link Building and AI Visibility"
+  prompt: |
+    Does traditional link building still matter for visibility in AI-generated answers, or has its role changed?
+  query_type: comparison
+  is_variant: false
+  variant_of: null
+  notes: null
+
+- id: "geo-longitudinal"
+  zone: "aeo-geo"
+  topic: "AI Citation Stability Over Time"
+  prompt: |
+    How stable are AI search engine citations over time, and what causes citation patterns to change month to month?
+  query_type: informational
+  is_variant: false
+  variant_of: null
+  notes: null
+
+# ─────────────────────────────────────────────────────────────
+# STABILITY-TEST VARIANTS  (5 variants — one per flagged canonical)
+# ─────────────────────────────────────────────────────────────
+
+- id: "co-what-is-content-ops-v2"
+  zone: "content-operations"
+  topic: "Content Operations Definition"
+  prompt: |
+    Can you explain what content operations means and why B2B tech companies are building dedicated teams for it?
+  query_type: informational
+  is_variant: true
+  variant_of: "co-what-is-content-ops"
+  notes: "Reworded for prompt stability sub-study"
+
+- id: "saas-ai-marketing-tools-v2"
+  zone: "b2b-saas-fintech"
+  topic: "AI Marketing Tools for B2B SaaS"
+  prompt: |
+    What are the best AI tools for marketing at a B2B SaaS company right now?
+  query_type: commercial
+  is_variant: true
+  variant_of: "saas-ai-marketing-tools"
+  notes: "Reworded for prompt stability sub-study"
+
+- id: "geo-what-is-v2"
+  zone: "aeo-geo"
+  topic: "GEO Definition"
+  prompt: |
+    What does generative engine optimization mean, and how does it differ from SEO?
+  query_type: informational
+  is_variant: true
+  variant_of: "geo-what-is"
+  notes: "Reworded for prompt stability sub-study"
+
+- id: "geo-chatgpt-vs-perplexity-v2"
+  zone: "aeo-geo"
+  topic: "Citation Behavior Across Engines"
+  prompt: |
+    Do ChatGPT, Perplexity, and Claude cite the same sources, or do their citation patterns differ significantly?
+  query_type: comparison
+  is_variant: true
+  variant_of: "geo-chatgpt-vs-perplexity"
+  notes: "Reworded for prompt stability sub-study"
+
+- id: "geo-original-research-v2"
+  zone: "aeo-geo"
+  topic: "Original Research and AI Citation"
+  prompt: |
+    If a B2B company publishes original data or research, does that make it more likely to be cited by AI engines?
+  query_type: how-to
+  is_variant: true
+  variant_of: "geo-original-research"
+  notes: "Reworded for prompt stability sub-study"

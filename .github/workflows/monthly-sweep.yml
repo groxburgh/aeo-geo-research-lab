@@ -1,0 +1,85 @@
+name: Monthly Research Sweep
+
+on:
+  schedule:
+    - cron: "0 2 1 * *"   # 02:00 UTC on the 1st of every month
+  workflow_dispatch:        # manual trigger; runs identically to scheduled run
+
+env:
+  MONTHLY_BUDGET_USD: 40
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Validate environment
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_REVIEW_DATABASE_ID: ${{ secrets.NOTION_REVIEW_DATABASE_ID }}
+        run: python run.py test
+
+      - name: Run pipeline
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_REVIEW_DATABASE_ID: ${{ secrets.NOTION_REVIEW_DATABASE_ID }}
+        run: python run.py run
+
+      - name: Generate report
+        if: always()
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_REVIEW_DATABASE_ID: ${{ secrets.NOTION_REVIEW_DATABASE_ID }}
+        run: python run.py report
+
+      - name: Commit results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/observatory.db reports/
+          git diff --cached --quiet || git commit -m "data: monthly sweep ${{ env.SWEEP_MONTH }} [${{ env.SWEEP_RUN_COUNT }} runs, \$${{ env.SWEEP_COST_USD }} spent]"
+
+      - name: Push
+        run: git push origin main
+
+      - name: Post to Notion
+        if: success()
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_REVIEW_DATABASE_ID: ${{ secrets.NOTION_REVIEW_DATABASE_ID }}
+        run: python run.py report --notify
+
+      - name: Open issue on failure
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue create \
+            --title "Monthly sweep failed: $(date -u +'%Y-%m')" \
+            --body "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --label "pipeline-failure"

@@ -10,6 +10,7 @@ from src.models import Citation, NormalizedResult
 
 INPUT_COST_PER_TOKEN = 0.000001   # Sonar pricing 2026-04
 OUTPUT_COST_PER_TOKEN = 0.000001
+REQUEST_COST = 0.005               # $5 per 1000 requests
 
 _API_URL = "https://api.perplexity.ai/chat/completions"
 
@@ -43,7 +44,7 @@ class PerplexityEngine(Engine):
             response_text = data["choices"][0]["message"]["content"]
             input_tokens = data["usage"]["prompt_tokens"]
             output_tokens = data["usage"]["completion_tokens"]
-            cost_usd = (input_tokens * INPUT_COST_PER_TOKEN) + (output_tokens * OUTPUT_COST_PER_TOKEN)
+            cost_usd = (input_tokens * INPUT_COST_PER_TOKEN) + (output_tokens * OUTPUT_COST_PER_TOKEN) + REQUEST_COST
 
             citations: list[Citation] = []
             for i, url in enumerate(data.get("citations", [])):

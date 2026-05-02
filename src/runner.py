@@ -10,7 +10,7 @@ from src.engines.anthropic_engine import AnthropicEngine
 from src.engines.openai_engine import OpenAIEngine
 from src.engines.perplexity_engine import PerplexityEngine
 
-_ENGINES = ["chatgpt", "perplexity", "claude"]
+_ENGINES = ["perplexity", "chatgpt", "claude"]  # cheapest first for checkpoint resilience
 _RUNS_PER_QUERY = 3
 
 
@@ -18,7 +18,7 @@ def _current_month() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m")
 
 
-def run_sweep(db_path: str, prompts_path: str, month: str, budget_usd: float) -> int:
+def run_sweep(db_path: str, prompts_path: str, month: str, budget_usd: float, engine_filter: str | None = None) -> int:
     with open(prompts_path) as f:
         queries = yaml.safe_load(f)
 
@@ -29,13 +29,16 @@ def run_sweep(db_path: str, prompts_path: str, month: str, budget_usd: float) ->
         print(f"[BUDGET] Monthly cap of ${budget_usd} already reached for {month}. Halting.")
         return 2
 
-    engines = {
-        "chatgpt": OpenAIEngine(os.environ["OPENAI_API_KEY"]),
-        "perplexity": PerplexityEngine(os.environ["PERPLEXITY_API_KEY"]),
-        "claude": AnthropicEngine(os.environ["ANTHROPIC_API_KEY"]),
-    }
+    active_engines = [e for e in _ENGINES if engine_filter is None or e == engine_filter]
 
-    total = len(queries) * len(_ENGINES) * _RUNS_PER_QUERY
+    all_engine_factories = {
+        "perplexity": lambda: PerplexityEngine(os.environ["PERPLEXITY_API_KEY"]),
+        "chatgpt": lambda: OpenAIEngine(os.environ["OPENAI_API_KEY"]),
+        "claude": lambda: AnthropicEngine(os.environ["ANTHROPIC_API_KEY"]),
+    }
+    engines = {name: all_engine_factories[name]() for name in active_engines}
+
+    total = len(queries) * len(active_engines) * _RUNS_PER_QUERY
     completed = 0
     circuit_fired = False
 
@@ -43,7 +46,7 @@ def run_sweep(db_path: str, prompts_path: str, month: str, budget_usd: float) ->
         query_id = query["id"]
         prompt = query["prompt"].strip()
 
-        for engine_name in _ENGINES:
+        for engine_name in active_engines:
             engine = engines[engine_name]
 
             for run_number in range(1, _RUNS_PER_QUERY + 1):

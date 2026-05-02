@@ -13,10 +13,10 @@ USAGE = """\
 Usage: python run.py <command> [options]
 
 Commands:
-  test              Validate environment, prompts.yaml, DB schema, and engine connectivity
-  run               Execute full monthly research sweep
-  report            Generate markdown report from latest run data
-  report --notify   Generate report and post summary to Notion
+  test                          Validate environment, prompts.yaml, DB schema, and engine connectivity
+  run [--engine <name>]         Execute monthly research sweep (all engines, or one: perplexity/chatgpt/claude)
+  report                        Generate markdown report from latest run data
+  report --notify               Generate report and post summary to Notion
 """
 
 REQUIRED_ENV_VARS = [
@@ -104,11 +104,11 @@ def cmd_test() -> int:
     return 1 if failed else 0
 
 
-def cmd_run() -> int:
+def cmd_run(engine_filter: str | None = None) -> int:
     from src import runner
     month = datetime.now(timezone.utc).strftime("%Y-%m")
     budget = float(os.environ.get("MONTHLY_BUDGET_USD", "40"))
-    return runner.run_sweep(DB_PATH, PROMPTS_PATH, month, budget)
+    return runner.run_sweep(DB_PATH, PROMPTS_PATH, month, budget, engine_filter=engine_filter)
 
 
 def cmd_report(notify: bool) -> int:
@@ -145,7 +145,12 @@ def main() -> int:
         return cmd_test()
 
     if command == "run":
-        return cmd_run()
+        engine_filter = None
+        if "--engine" in args:
+            idx = args.index("--engine")
+            if idx + 1 < len(args):
+                engine_filter = args[idx + 1]
+        return cmd_run(engine_filter)
 
     if command == "report":
         notify = "--notify" in args

@@ -105,6 +105,18 @@ Format: each decision gets a dated entry with Decision, Alternative(s) Considere
 
 ---
 
+## 2026-05-02: Claude web search capped at 1 per query (max_uses=1)
+
+**Decision:** The `web_search_20250305` tool parameter `max_uses` is set to 1 for all Claude queries, down from the initial 3.
+
+**Alternatives considered:**
+- Keep max_uses=3 and rely on the $40 circuit breaker to cut the run short each month
+- Switch to Claude Haiku to reduce token costs while keeping max_uses=3
+
+**Rationale:** Two compounding reasons. First, budget: the first production run cost ~$20 on Claude alone (4.7M input tokens + 277 web searches), pushing the three-engine total above $40. Setting max_uses=1 reduces both web search fees and input token volume (less search result context), bringing the estimated total to ~$33. Second, methodological consistency: with max_uses=3, Claude made an average of 1.57 searches per query through iterative refinement, while Perplexity always makes 1 API call and OpenAI's web_search_preview typically makes 1 search. The multi-search iteration gave Claude a qualitatively different retrieval process. Fixing all three engines at effectively 1 primary web search per query creates a more defensible apples-to-apples comparison for citation pattern analysis. This change takes effect from the 2026-05 sweep.
+
+---
+
 ## 2026-04-19: Notion as review gate only, not primary store
 
 **Decision:** Raw data lives in a SQLite database committed to the repo. Monthly reports are markdown files committed to the repo. Notion receives a summary post of each generated report as a human review gate before external announcement.

@@ -10,6 +10,7 @@ from src.models import Citation, NormalizedResult
 
 INPUT_COST_PER_TOKEN = 0.000003    # Claude Sonnet 4.6 pricing 2026-04
 OUTPUT_COST_PER_TOKEN = 0.000015
+WEB_SEARCH_COST = 0.010            # $10 per 1000 searches
 
 
 class AnthropicEngine(Engine):
@@ -22,7 +23,7 @@ class AnthropicEngine(Engine):
         try:
             response = self._client.messages.create(
                 model="claude-sonnet-4-6",
-                tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
+                tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 1}],
                 messages=[{"role": "user", "content": prompt}],
                 max_tokens=1500,
             )
@@ -48,7 +49,15 @@ class AnthropicEngine(Engine):
 
             input_tokens = response.usage.input_tokens
             output_tokens = response.usage.output_tokens
-            cost_usd = (input_tokens * INPUT_COST_PER_TOKEN) + (output_tokens * OUTPUT_COST_PER_TOKEN)
+            web_search_uses = sum(
+                1 for block in response.content
+                if getattr(block, "type", None) == "tool_use" and getattr(block, "name", None) == "web_search"
+            )
+            cost_usd = (
+                (input_tokens * INPUT_COST_PER_TOKEN)
+                + (output_tokens * OUTPUT_COST_PER_TOKEN)
+                + (web_search_uses * WEB_SEARCH_COST)
+            )
 
             return NormalizedResult(
                 run_id=run_id,

@@ -10,6 +10,7 @@ from src.models import Citation, NormalizedResult
 
 INPUT_COST_PER_TOKEN = 0.0000025   # GPT-4o pricing 2026-04
 OUTPUT_COST_PER_TOKEN = 0.000010
+WEB_SEARCH_COST = 0.030            # $30 per 1000 searches (web_search_preview, basic tier)
 
 
 class OpenAIEngine(Engine):
@@ -53,7 +54,12 @@ class OpenAIEngine(Engine):
 
             input_tokens = response.usage.input_tokens
             output_tokens = response.usage.output_tokens
-            cost_usd = (input_tokens * INPUT_COST_PER_TOKEN) + (output_tokens * OUTPUT_COST_PER_TOKEN)
+            web_search_uses = sum(1 for item in response.output if item.type == "web_search_call")
+            cost_usd = (
+                (input_tokens * INPUT_COST_PER_TOKEN)
+                + (output_tokens * OUTPUT_COST_PER_TOKEN)
+                + (web_search_uses * WEB_SEARCH_COST)
+            )
 
             return NormalizedResult(
                 run_id=run_id,

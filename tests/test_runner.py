@@ -112,6 +112,27 @@ def test_sweep_skips_existing_runs(MockAnthropic, MockPerplexity, MockOpenAI, tm
 @patch("src.runner.OpenAIEngine")
 @patch("src.runner.PerplexityEngine")
 @patch("src.runner.AnthropicEngine")
+def test_sweep_engine_filter_runs_only_selected_engine(MockAnthropic, MockPerplexity, MockOpenAI, tmp_db, mini_prompts):
+    MockOpenAI.return_value = _mock_engine("q-test-1", "chatgpt")
+    MockPerplexity.return_value = _mock_engine("q-test-1", "perplexity")
+    MockAnthropic.return_value = _mock_engine("q-test-1", "claude")
+
+    exit_code = runner.run_sweep(tmp_db, mini_prompts, "2026-04", 40.0, engine_filter="perplexity")
+
+    assert exit_code == 0
+    runs = db.get_runs_for_month(tmp_db, "2026-04")
+    assert len(runs) == 3  # 1 query × 1 engine × 3 runs
+    assert all(r["engine"] == "perplexity" for r in runs)
+    MockOpenAI.assert_not_called()
+    MockAnthropic.assert_not_called()
+
+
+@patch.dict("os.environ", {
+    "OPENAI_API_KEY": "test", "PERPLEXITY_API_KEY": "test", "ANTHROPIC_API_KEY": "test"
+})
+@patch("src.runner.OpenAIEngine")
+@patch("src.runner.PerplexityEngine")
+@patch("src.runner.AnthropicEngine")
 def test_sweep_returns_2_when_budget_exceeded(MockAnthropic, MockPerplexity, MockOpenAI, tmp_db, mini_prompts):
     MockOpenAI.return_value = _mock_engine("q-test-1", "chatgpt")
     MockPerplexity.return_value = _mock_engine("q-test-1", "perplexity")

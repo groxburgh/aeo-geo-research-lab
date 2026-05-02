@@ -11,6 +11,9 @@ env:
 jobs:
   sweep:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # required for git push
+      issues: write     # required for gh issue create on failure
 
     steps:
       - name: Checkout
@@ -26,6 +29,11 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
       - name: Validate environment
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -35,14 +43,46 @@ jobs:
           NOTION_REVIEW_DATABASE_ID: ${{ secrets.NOTION_REVIEW_DATABASE_ID }}
         run: python run.py test
 
-      - name: Run pipeline
+      - name: Run pipeline - Perplexity
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
           NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
           NOTION_REVIEW_DATABASE_ID: ${{ secrets.NOTION_REVIEW_DATABASE_ID }}
-        run: python run.py run
+        run: python run.py run --engine perplexity
+
+      - name: Checkpoint push - Perplexity
+        continue-on-error: true
+        run: |
+          git add data/observatory.db
+          git diff --cached --quiet || git commit -m "data: perplexity checkpoint $(date -u +'%Y-%m')"
+          git push origin main
+
+      - name: Run pipeline - ChatGPT
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_REVIEW_DATABASE_ID: ${{ secrets.NOTION_REVIEW_DATABASE_ID }}
+        run: python run.py run --engine chatgpt
+
+      - name: Checkpoint push - ChatGPT
+        continue-on-error: true
+        run: |
+          git add data/observatory.db
+          git diff --cached --quiet || git commit -m "data: chatgpt checkpoint $(date -u +'%Y-%m')"
+          git push origin main
+
+      - name: Run pipeline - Claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+          NOTION_API_KEY: ${{ secrets.NOTION_API_KEY }}
+          NOTION_REVIEW_DATABASE_ID: ${{ secrets.NOTION_REVIEW_DATABASE_ID }}
+        run: python run.py run --engine claude
 
       - name: Generate report
         if: always()
@@ -55,13 +95,13 @@ jobs:
         run: python run.py report
 
       - name: Commit results
+        if: always()
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/observatory.db reports/
           git diff --cached --quiet || git commit -m "data: monthly sweep ${{ env.SWEEP_MONTH }} [${{ env.SWEEP_RUN_COUNT }} runs, \$${{ env.SWEEP_COST_USD }} spent]"
 
       - name: Push
+        if: always()
         run: git push origin main
 
       - name: Post to Notion

@@ -146,3 +146,46 @@ Format for each entry:
 - Then `python run.py report` to generate first monthly report
 - Phase 6: GitHub Actions workflow smoke-test via workflow_dispatch
 - Phase 7: Implement `src/notifier.py` (Notion review gate)
+
+---
+
+## 2026-05-02 (Session 6: First production run — push failure and budget fix)
+
+**What changed:**
+- `.github/workflows/monthly-sweep.yml`: added `permissions: contents: write` and `issues: write` to the `sweep` job — fixes 403 push failure caused by default read-only GITHUB_TOKEN
+- `src/engines/anthropic_engine.py`: added `WEB_SEARCH_COST = 0.010` constant and updated cost calculation to count `tool_use` blocks with `name == "web_search"` — fixes budget undercount (~$0.01/search was not tracked)
+
+**What happened on the first run:**
+- All pipeline steps succeeded (validate, run, generate report, commit results)
+- Push failed with exit code 128: `Permission to groxburgh/aeo-geo-research-lab.git denied to github-actions[bot]`
+- The local commit in the runner was lost — the DB changes from this run are not in the repo
+- Claude API consumed ~4.7M input tokens, ~236K output tokens, 277 web searches (expected for 59 queries × 3 runs)
+- The $40 budget circuit breaker was not triggered; run completed normally
+
+**Verification:**
+- Workflow YAML re-read; permissions block present ✓
+- `anthropic_engine.py` re-read; cost formula includes web search term ✓
+
+**Next step:**
+- Commit and push these fixes
+- Re-trigger the workflow via `workflow_dispatch` to re-run the May 2026 sweep (previous run data was not persisted)
+
+---
+
+## 2026-05-02 (Session 7: Resilience and budget fixes)
+
+**What changed:**
+- `run.py`: added `--engine <name>` optional argument to the `run` command; updated USAGE string
+- `src/runner.py`: added `engine_filter` parameter; reordered `_ENGINES` cheapest-first (perplexity → chatgpt → claude); only instantiates engine clients for the active set
+- `.github/workflows/monthly-sweep.yml`: extracted "Configure git" to a dedicated early step; split "Run pipeline" into three per-engine steps with `continue-on-error` checkpoint pushes between them; added `if: always()` to "Commit results" and "Push" so partial Claude data is never lost
+- `src/engines/anthropic_engine.py`: reduced `max_uses` from 3 to 1 (budget + methodological consistency)
+- `tests/test_runner.py`: added `test_sweep_engine_filter_runs_only_selected_engine` (passes)
+- `decisions-log.md`: logged max_uses decision with full rationale
+
+**Verification:**
+- `pytest` — 26/26 passed ✓
+- Engine filter test confirms MockOpenAI and MockAnthropic never instantiated when filter="perplexity" ✓
+
+**Next step:**
+- Commit and push, then trigger `workflow_dispatch` to run the May 2026 sweep
+- After run completes, verify three checkpoint commits appear in git log and Perplexity + ChatGPT data is in repo before Claude finishes

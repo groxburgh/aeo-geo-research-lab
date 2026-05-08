@@ -98,7 +98,10 @@ jobs:
         if: always()
         run: |
           git add data/observatory.db reports/
-          git diff --cached --quiet || git commit -m "data: monthly sweep ${{ env.SWEEP_MONTH }} [${{ env.SWEEP_RUN_COUNT }} runs, \$${{ env.SWEEP_COST_USD }} spent]"
+          MONTH=$(date -u +'%Y-%m')
+          DETAIL="${SWEEP_RUN_COUNT:+$SWEEP_RUN_COUNT runs, \$${SWEEP_COST_USD} spent}"
+          MSG="data: monthly sweep ${MONTH}${DETAIL:+ [$DETAIL]}"
+          git diff --cached --quiet || git commit -m "$MSG"
 
       - name: Push
         if: always()
@@ -121,5 +124,4 @@ jobs:
         run: |
           gh issue create \
             --title "Monthly sweep failed: $(date -u +'%Y-%m')" \
-            --body "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            --label "pipeline-failure"
+            --body "Workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

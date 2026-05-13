@@ -6,13 +6,7 @@
     {
       "type": "web_search_call",
       "id": "ws_test456",
-      "status": "completed",
-      "results": [
-        {
-          "url": "https://example.com/article",
-          "title": "Example Article"
-        }
-      ]
+      "status": "completed"
     },
     {
       "type": "message",
@@ -21,7 +15,16 @@
       "content": [
         {
           "type": "output_text",
-          "text": "Ready."
+          "text": "Ready.",
+          "annotations": [
+            {
+              "type": "url_citation",
+              "url": "https://example.com/article",
+              "title": "Example Article",
+              "start_index": 0,
+              "end_index": 5
+            }
+          ]
         }
       ]
     }

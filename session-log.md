@@ -172,6 +172,59 @@ Format for each entry:
 
 ---
 
+## 2026-05-13 (Session 9: Post-audit fixes — idempotency, citation extraction hardening, report quality)
+
+**What changed:**
+- `src/engines/anthropic_engine.py`: Added rate-limit retry (3 attempts, 5/10/20s exponential backoff). Replaced `result.type == "web_search_result"` type check with defensive URL-presence check (`getattr(result, "url", None)`) to capture citations regardless of SDK deserialisation variance. Added `_MAX_RETRIES` and `_RETRY_BASE_DELAY` constants. `model_version` in error handler changed from `"unknown"` to `"error:no-response"`.
+- `src/engines/openai_engine.py`: Pinned model to `"gpt-4o-2024-11-20"` (previously `"gpt-4o"` which resolved to `gpt-4o-2024-08-06`, a checkpoint predating `web_search_preview` support). `model_version` in error handler changed to `"error:no-response"`.
+- `src/engines/perplexity_engine.py`: `model_version` in error handler changed to `"error:no-response"`.
+- `src/db.py`: `run_exists` query now includes `AND error IS NULL` — error rows no longer block retries. New `clear_error_run()` function deletes error rows (and their cost rows) before retry to avoid UNIQUE constraint violations.
+- `src/runner.py`: Calls `db.clear_error_run()` immediately before `db.run_exists()` on every iteration.
+- `src/report.py`: Added `_INVALID_DOMAINS` frozenset (co.uk, org.uk, and other eTLD-impersonating fragments) filtered from citation frequency tables. Added zero-citation engine notes to Cross-Engine Overlap and Prompt Stability sections.
+- `TECH-SPEC.md`: Corrected §5.1 (ChatGPT citation extraction description) and §5.3 (Claude citation extraction description) to match actual code; corrected model pin and max_uses.
+- `METHODOLOGY.md`: Corrected citation extraction descriptions for ChatGPT and Claude; updated citation extraction table; added COI disclosure section; added Version History 1.1 row.
+- `tests/test_db.py`: Added `_make_result()` helper and `_QUERY` constant. Added three new tests: `test_run_exists_false_for_error_row`, `test_clear_error_run_removes_error_row`, `test_clear_error_run_noop_for_success`.
+- `tests/test_runner.py`: Added `test_sweep_retries_error_rows` verifying that error rows are cleared and retried on subsequent sweep.
+
+**Root cause summary:**
+May 2026 data showed 0 citations for ChatGPT (wrong model checkpoint, web search not invoked) and Claude (SDK type mismatch in citation extraction + 79 errors from probable rate limiting). The db.run_exists bug meant those error rows blocked automatic retry. This session fixes all three root causes plus the co.uk domain contamination in reports and the stale documentation.
+
+**Verification:**
+- `ruff check src/ tests/` — clean ✓
+- `pytest` — 30/30 passed (4 new tests) ✓
+
+**Next step:**
+- `python run.py run --engine claude` to retry the 79 May 2026 error rows
+- `python run.py report` to regenerate the May 2026 report with full Claude data
+
+---
+
+## 2026-05-13 (Session 8: Citation extraction bug fixes)
+
+**What changed:**
+- `src/engines/openai_engine.py`: Fixed citation extraction — citations are `url_citation` annotations on `output_text` content parts inside `message` items, not on `web_search_call.results` (which doesn't exist in the real API). Added `logger.exception` to the error handler.
+- `src/engines/anthropic_engine.py`: Fixed citation extraction — citations live in `web_search_tool_result` blocks → `content` list → `web_search_result` items. Updated `web_search_uses` count to check for `server_tool_use` block type (not `tool_use`). Added `logger.exception` to the error handler.
+- `requirements.txt`: Upgraded `anthropic` from `0.49.0` to `0.56.0`. SDK 0.49.0 had no typed classes for web search result blocks (`ServerToolUseBlock`, `WebSearchToolResultBlock`, `WebSearchResultBlock`); these were added in 0.56.0 and are required for correct citation extraction.
+- `tests/fixtures/openai_response.json`: Updated to reflect the real Responses API response shape (annotations on output_text, no `results` on web_search_call).
+- `tests/fixtures/anthropic_response.json`: Updated to reflect the real Messages API response shape (server_tool_use + web_search_tool_result + text blocks).
+- `tests/test_engines.py`: Updated `_build_openai_mock` and `_build_anthropic_mock` to match corrected fixture structures.
+- `scripts/dump_engine_responses.py`: New diagnostic script (one-off) that sends a single query to all three engines and dumps raw responses to `scripts/raw_responses/`. Not a permanent test harness. Could not be run locally due to SSL certificate issue; SDK type inspection used as ground truth instead.
+
+**Root cause summary:**
+The previous fixtures were written to match the broken extraction code rather than the real API, so unit tests passed while live runs returned 0 citations. The core issues: (1) OpenAI Responses API returns citations as `url_citation` annotations on response text, not as results on the search call item; (2) Anthropic Messages API returns web search results as `web_search_tool_result` blocks requiring SDK ≥ 0.56.0 to parse.
+
+**Verification:**
+- `ruff check src/ tests/` — clean ✓
+- `pytest` — 26/26 passed ✓
+- End-to-end live verification deferred to GitHub Actions workflow_dispatch (local API calls blocked by SSL certificate issue in local environment)
+
+**Next step:**
+- Commit and push these fixes
+- Trigger `workflow_dispatch` to re-run the June 2026 sweep and verify non-zero citations from all three engines
+- Check GitHub Actions logs for any Anthropic errors — they will now surface with full tracebacks instead of being silently swallowed
+
+---
+
 ## 2026-05-02 (Session 7: Resilience and budget fixes)
 
 **What changed:**

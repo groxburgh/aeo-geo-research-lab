@@ -133,6 +133,49 @@ def test_sweep_engine_filter_runs_only_selected_engine(MockAnthropic, MockPerple
 @patch("src.runner.OpenAIEngine")
 @patch("src.runner.PerplexityEngine")
 @patch("src.runner.AnthropicEngine")
+def test_sweep_retries_error_rows(MockAnthropic, MockPerplexity, MockOpenAI, tmp_db, mini_prompts):
+    from uuid import uuid4
+    query = {
+        "id": "q-test-1", "topic": "Test Query", "prompt": "What is content operations?",
+        "is_variant": False, "variant_of": None, "zone": "content-operations", "query_type": "informational",
+    }
+    db.insert_query(tmp_db, query)
+    error_result = NormalizedResult(
+        run_id=str(uuid4()),
+        query_id="q-test-1",
+        engine="perplexity",
+        model_version="error:no-response",
+        run_number=1,
+        month="2026-04",
+        prompt_sent="What is content operations?",
+        response_text="",
+        input_tokens=0,
+        output_tokens=0,
+        cost_usd=0.0,
+        ran_at="2026-04-01T02:00:00+00:00",
+        citations=[],
+        error="API failed",
+    )
+    db.insert_result(tmp_db, error_result)
+
+    MockOpenAI.return_value = _mock_engine("q-test-1", "chatgpt")
+    MockPerplexity.return_value = _mock_engine("q-test-1", "perplexity")
+    MockAnthropic.return_value = _mock_engine("q-test-1", "claude")
+
+    exit_code = runner.run_sweep(tmp_db, mini_prompts, "2026-04", 40.0, engine_filter="perplexity")
+
+    assert exit_code == 0
+    runs = db.get_runs_for_month(tmp_db, "2026-04")
+    assert len(runs) == 3
+    assert all(r["error"] is None for r in runs)
+
+
+@patch.dict("os.environ", {
+    "OPENAI_API_KEY": "test", "PERPLEXITY_API_KEY": "test", "ANTHROPIC_API_KEY": "test"
+})
+@patch("src.runner.OpenAIEngine")
+@patch("src.runner.PerplexityEngine")
+@patch("src.runner.AnthropicEngine")
 def test_sweep_returns_2_when_budget_exceeded(MockAnthropic, MockPerplexity, MockOpenAI, tmp_db, mini_prompts):
     MockOpenAI.return_value = _mock_engine("q-test-1", "chatgpt")
     MockPerplexity.return_value = _mock_engine("q-test-1", "perplexity")

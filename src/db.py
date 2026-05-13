@@ -47,10 +47,23 @@ def insert_query(db_path: str, query: dict) -> None:
 
 
 def run_exists(db_path: str, query_id: str, engine: str, run_number: int, month: str) -> bool:
-    sql = "SELECT 1 FROM runs WHERE query_id=? AND engine=? AND run_number=? AND month=?"
+    sql = "SELECT 1 FROM runs WHERE query_id=? AND engine=? AND run_number=? AND month=? AND error IS NULL"
     with _connect(db_path) as conn:
         row = conn.execute(sql, (query_id, engine, run_number, month)).fetchone()
     return row is not None
+
+
+def clear_error_run(db_path: str, query_id: str, engine: str, run_number: int, month: str) -> None:
+    with _connect(db_path) as conn:
+        conn.execute(
+            "DELETE FROM costs WHERE run_id IN "
+            "(SELECT run_id FROM runs WHERE query_id=? AND engine=? AND run_number=? AND month=? AND error IS NOT NULL)",
+            (query_id, engine, run_number, month),
+        )
+        conn.execute(
+            "DELETE FROM runs WHERE query_id=? AND engine=? AND run_number=? AND month=? AND error IS NOT NULL",
+            (query_id, engine, run_number, month),
+        )
 
 
 def insert_result(db_path: str, result: NormalizedResult) -> None:

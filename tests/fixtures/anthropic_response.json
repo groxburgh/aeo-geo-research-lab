@@ -1,16 +1,35 @@
 {
+  "id": "msg_test123",
+  "type": "message",
+  "role": "assistant",
   "model": "claude-sonnet-4-6-20251001",
   "content": [
     {
-      "type": "text",
-      "text": "Ready."
+      "type": "server_tool_use",
+      "id": "stu_test123",
+      "name": "web_search",
+      "input": {"query": "test query"}
     },
     {
-      "type": "web_search_result",
-      "url": "https://example.com/result",
-      "title": "Example Result"
+      "type": "web_search_tool_result",
+      "tool_use_id": "stu_test123",
+      "content": [
+        {
+          "type": "web_search_result",
+          "url": "https://example.com/result",
+          "title": "Example Result",
+          "encrypted_content": "enc_data_placeholder",
+          "page_age": null
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "text": "Ready."
     }
   ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
   "usage": {
     "input_tokens": 25,
     "output_tokens": 8

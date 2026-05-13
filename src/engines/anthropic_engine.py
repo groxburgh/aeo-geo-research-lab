@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+import time
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -8,9 +10,14 @@ import anthropic
 from src.engines.base import Engine
 from src.models import Citation, NormalizedResult
 
+logger = logging.getLogger(__name__)
+
 INPUT_COST_PER_TOKEN = 0.000003    # Claude Sonnet 4.6 pricing 2026-04
 OUTPUT_COST_PER_TOKEN = 0.000015
 WEB_SEARCH_COST = 0.010            # $10 per 1000 searches
+
+_MAX_RETRIES = 3
+_RETRY_BASE_DELAY = 5.0  # seconds; doubles each attempt: 5s, 10s, 20s
 
 
 class AnthropicEngine(Engine):
@@ -21,12 +28,20 @@ class AnthropicEngine(Engine):
         run_id = str(uuid4())
         ran_at = datetime.now(timezone.utc).isoformat()
         try:
-            response = self._client.messages.create(
-                model="claude-sonnet-4-6",
-                tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 1}],
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=1500,
-            )
+            response = None
+            for attempt in range(_MAX_RETRIES):
+                try:
+                    response = self._client.messages.create(
+                        model="claude-sonnet-4-6",
+                        tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 1}],
+                        messages=[{"role": "user", "content": prompt}],
+                        max_tokens=1500,
+                    )
+                    break
+                except anthropic.RateLimitError:
+                    if attempt == _MAX_RETRIES - 1:
+                        raise
+                    time.sleep(_RETRY_BASE_DELAY * (2 ** attempt))
 
             model_version = response.model
             response_text = ""
@@ -36,22 +51,26 @@ class AnthropicEngine(Engine):
             for block in response.content:
                 if block.type == "text":
                     response_text += block.text
-                elif block.type == "web_search_result":
-                    domain = Citation.extract_domain(block.url)
-                    citations.append(Citation(
-                        citation_id=str(uuid4()),
-                        url=block.url,
-                        title=getattr(block, "title", None),
-                        position=position,
-                        domain=domain,
-                    ))
-                    position += 1
+                elif block.type == "web_search_tool_result":
+                    content_items = block.content if isinstance(block.content, list) else []
+                    for result in content_items:
+                        url = getattr(result, "url", None)
+                        if url:
+                            domain = Citation.extract_domain(url)
+                            citations.append(Citation(
+                                citation_id=str(uuid4()),
+                                url=url,
+                                title=getattr(result, "title", None),
+                                position=position,
+                                domain=domain,
+                            ))
+                            position += 1
 
             input_tokens = response.usage.input_tokens
             output_tokens = response.usage.output_tokens
             web_search_uses = sum(
                 1 for block in response.content
-                if getattr(block, "type", None) == "tool_use" and getattr(block, "name", None) == "web_search"
+                if getattr(block, "type", None) == "server_tool_use"
             )
             cost_usd = (
                 (input_tokens * INPUT_COST_PER_TOKEN)
@@ -76,11 +95,12 @@ class AnthropicEngine(Engine):
             )
 
         except Exception as e:
+            logger.exception("Anthropic call failed for query_id=%s run=%s", query_id, run_number)
             return NormalizedResult(
                 run_id=run_id,
                 query_id=query_id,
                 engine="claude",
-                model_version="unknown",
+                model_version="error:no-response",
                 run_number=run_number,
                 month=month,
                 prompt_sent=prompt,

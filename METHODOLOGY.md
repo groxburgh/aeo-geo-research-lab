@@ -56,11 +56,11 @@ The query set is stored in `/prompts/prompts.yaml` and is version-controlled. An
 
 ### Active Engines (V1)
 
-**ChatGPT** — OpenAI Responses API with web search enabled. Model: `gpt-4o` (exact version recorded per run). Citations extracted from `web_search_call` output blocks in the API response.
+**ChatGPT** — OpenAI Responses API with web search enabled. Model: `gpt-4o-2024-11-20` (exact version recorded per run). Citations extracted from `url_citation` annotations on `output_text` content parts in the API response.
 
 **Perplexity** — Sonar API. Model: `sonar` (exact version recorded per run). Citations extracted from the `citations` array returned alongside the answer.
 
-**Claude** — Anthropic Messages API with the web search tool. Model: `claude-sonnet-4-6` (exact version recorded per run). Citations extracted from `web_search_result` content blocks in the API response.
+**Claude** — Anthropic Messages API with the web search tool. Model: `claude-sonnet-4-6` (exact version recorded per run). Citations extracted from `web_search_tool_result` content blocks (containing nested search result objects) in the API response. Web search capped at 1 invocation per query (`max_uses: 1`).
 
 ### Excluded Engines
 
@@ -126,9 +126,9 @@ Each engine returns citations in a different format. The pipeline normalizes the
 
 | Engine | Citation Source | Title Available |
 |---|---|---|
-| ChatGPT | `web_search_call` output blocks; each result has `url` and `title` | Yes |
+| ChatGPT | `url_citation` annotations on `output_text` content parts | Yes |
 | Perplexity | `citations` array — flat list of URL strings | No |
-| Claude | `web_search_result` content blocks; each has `url` and `title` | Yes |
+| Claude | `web_search_tool_result` content blocks; each result object has `url` and `title` | Yes |
 
 ### Domain Normalization
 
@@ -198,8 +198,17 @@ Model version changes are not treated as a reason to exclude data. They are disc
 
 ---
 
+## Conflict of Interest
+
+This research is conducted by Greg Roxburgh, a content operations consultant based in Seoul. The three topic zones studied (content operations, B2B SaaS/fintech, AEO/GEO) directly serve the operator's consulting ICP and professional positioning.
+
+Findings are reported without selection: null results and months with no significant change are published as such. This observatory is self-funded. No sponsor or client relationship influences which findings are reported or how they are framed.
+
+---
+
 ## Version History
 
 | Version | Date | Change |
 |---|---|---|
 | 1.0 | TBD (first run date) | Initial methodology. 50–60 queries, three engines, three runs per query per engine. |
+| 1.1 | 2026-05-13 | Updated citation extraction descriptions to match actual API response structures. Added conflict-of-interest disclosure. Added max_uses: 1 note for Claude. Updated ChatGPT model to gpt-4o-2024-11-20. |

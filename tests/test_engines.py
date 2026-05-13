@@ -24,16 +24,15 @@ def _build_openai_mock(data: dict) -> MagicMock:
     output = []
     for item in data["output"]:
         mock_item = SimpleNamespace(type=item["type"])
-        if item["type"] == "web_search_call":
-            mock_item.results = [
-                SimpleNamespace(url=r["url"], title=r.get("title"))
-                for r in item.get("results", [])
-            ]
-        elif item["type"] == "message":
-            mock_item.content = [
-                SimpleNamespace(type=p["type"], text=p.get("text", ""))
-                for p in item.get("content", [])
-            ]
+        if item["type"] == "message":
+            parts = []
+            for p in item.get("content", []):
+                annotations = [
+                    SimpleNamespace(type=a["type"], url=a.get("url", ""), title=a.get("title"))
+                    for a in p.get("annotations", [])
+                ]
+                parts.append(SimpleNamespace(type=p["type"], text=p.get("text", ""), annotations=annotations))
+            mock_item.content = parts
         output.append(mock_item)
 
     usage = SimpleNamespace(
@@ -47,12 +46,20 @@ def _build_anthropic_mock(data: dict) -> MagicMock:
     """Build a mock object mirroring the Anthropic Messages API response structure."""
     content = []
     for block in data["content"]:
-        content.append(SimpleNamespace(
-            type=block["type"],
-            text=block.get("text", ""),
-            url=block.get("url", ""),
-            title=block.get("title"),
-        ))
+        if block["type"] == "web_search_tool_result":
+            raw_content = block.get("content", [])
+            results = [
+                SimpleNamespace(type=r["type"], url=r["url"], title=r.get("title"))
+                for r in raw_content
+                if isinstance(r, dict)
+            ]
+            content.append(SimpleNamespace(type=block["type"], content=results))
+        else:
+            content.append(SimpleNamespace(
+                type=block["type"],
+                text=block.get("text", ""),
+                name=block.get("name"),
+            ))
     usage = SimpleNamespace(
         input_tokens=data["usage"]["input_tokens"],
         output_tokens=data["usage"]["output_tokens"],

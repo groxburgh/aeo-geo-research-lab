@@ -25,8 +25,8 @@ pyyaml==6.0.2
 
 **Rationale for non-obvious pins:**
 
-- `anthropic==0.49.0` — Pins to the version that exposes `web_search_result` content blocks in the response, which is required for citation extraction. Any bump must be manually validated against citation parsing.
-- `openai==1.75.0` — Pins to the version where `response.output` contains `web_search_call` and `message` items in the Responses API format. The Responses API (`client.responses.create`) is used, not Chat Completions, because it exposes structured tool call outputs with URLs.
+- `anthropic==0.49.0` — Pins to the version that exposes `web_search_tool_result` content blocks in the response, which is required for citation extraction. Any bump must be manually validated against citation parsing.
+- `openai==1.75.0` — Pins to the version where `response.output` contains `web_search_call` and `message` items in the Responses API format. Citations are extracted from `url_citation` annotations on `output_text` content parts within `message` items. The Responses API (`client.responses.create`) is used, not Chat Completions, because it exposes structured annotation data with URLs.
 - `requests==2.32.3` — Used for Perplexity only (Sonar API is a plain REST endpoint with no official SDK). `httpx` is explicitly not used to keep the dependency surface minimal.
 - `pyyaml==6.0.2` — Safe-load only. Never `yaml.load()` anywhere in the codebase; always `yaml.safe_load()`.
 
@@ -75,9 +75,9 @@ ruff==0.11.6
 │   ├── db.py                     # All SQLite read/write operations; no SQL lives outside this file
 │   ├── engines/
 │   │   ├── __init__.py
-│   │   ├── anthropic_engine.py   # Claude integration; citation extraction from web_search_result blocks
+│   │   ├── anthropic_engine.py   # Claude integration; citation extraction from web_search_tool_result blocks
 │   │   ├── base.py               # Abstract base class Engine; defines the interface all engines implement
-│   │   ├── openai_engine.py      # ChatGPT integration via Responses API; citation extraction from tool_calls
+│   │   ├── openai_engine.py      # ChatGPT integration via Responses API; citation extraction from url_citation annotations
 │   │   └── perplexity_engine.py  # Perplexity Sonar integration via requests; citation extraction from citations array
 │   ├── models.py                 # Dataclasses for NormalizedResult and Citation
 │   ├── notifier.py               # Notion API integration; posts summary after report generation
@@ -221,7 +221,7 @@ All three engine integrations must return a `NormalizedResult` dataclass (define
 - `response_text` — from the `output_text` of the `message` item in `response.output`
 - `input_tokens` — from `response.usage.input_tokens`
 - `output_tokens` — from `response.usage.output_tokens`
-- `citations` — from `web_search_call` items in `response.output`; each result in `output[n].results` has `url` and `title`
+- `citations` — from `url_citation` annotations on `output_text` content parts within `message` items in `response.output`; each annotation has `url` and `title`
 
 **Perplexity (Sonar REST API)**
 - `model_version` — from `response_json["model"]`
@@ -235,7 +235,7 @@ All three engine integrations must return a `NormalizedResult` dataclass (define
 - `response_text` — concatenation of all `text` content blocks in `response.content`
 - `input_tokens` — from `response.usage.input_tokens`
 - `output_tokens` — from `response.usage.output_tokens`
-- `citations` — from `web_search_result` content blocks in `response.content`; each block has `url` and `title`
+- `citations` — from `web_search_tool_result` content blocks in `response.content`; each block's `content` list is iterated and objects with a `url` attribute are collected as citations; `title` is extracted if present
 
 ---
 
@@ -244,13 +244,13 @@ All three engine integrations must return a `NormalizedResult` dataclass (define
 ### 5.1 ChatGPT — OpenAI Responses API
 
 **API:** OpenAI Responses API (`client.responses.create`)
-**Model:** `gpt-4o` (resolved at runtime; `model_version` recorded from response)
+**Model:** `gpt-4o-2024-11-20` (pinned; `model_version` recorded from response)
 
 **Request parameters:**
 
 | Parameter | Value |
 |---|---|
-| `model` | `"gpt-4o"` |
+| `model` | `"gpt-4o-2024-11-20"` |
 | `tools` | `[{"type": "web_search_preview"}]` |
 | `input` | The prompt string |
 | `max_output_tokens` | `1500` |
@@ -258,10 +258,10 @@ All three engine integrations must return a `NormalizedResult` dataclass (define
 **Output extraction:**
 
 Iterate `response.output`. Items have a `type` field:
-- `type == "web_search_call"` — `results` list, each with `url` and `title`; collect in order for citations
-- `type == "message"` — `content` list; text answer is in the part where `type == "output_text"`, accessed as `.text`
+- `type == "message"` — `content` list; text answer is in the part where `type == "output_text"`, accessed as `.text`; `url_citation` annotations on `output_text` parts contain `url` and `title`; collect in encounter order for citations
+- `type == "web_search_call"` — signals a web search occurred; count for cost calculation; does not contain citation data directly
 
-If no `web_search_call` item is present, citations is an empty list. This is valid, not an error.
+If no `url_citation` annotations are present, citations is an empty list. This is valid, not an error.
 
 **Cost calculation:** `(input_tokens * 0.0000025) + (output_tokens * 0.000010)` (GPT-4o pricing as of 2026-04; update in `openai_engine.py` with a note in `decisions-log.md` if pricing changes).
 
@@ -306,7 +306,7 @@ If no `web_search_call` item is present, citations is an empty list. This is val
 | Parameter | Value |
 |---|---|
 | `model` | `"claude-sonnet-4-6"` |
-| `tools` | `[{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}]` |
+| `tools` | `[{"type": "web_search_20250305", "name": "web_search", "max_uses": 1}]` |
 | `messages` | `[{"role": "user", "content": <prompt>}]` |
 | `max_tokens` | `1500` |
 
@@ -314,8 +314,8 @@ If no `web_search_call` item is present, citations is an empty list. This is val
 
 Iterate `response.content` blocks by `type`:
 - `"text"` — append `.text` to `response_text` accumulator
-- `"web_search_result"` — each block has `.url` and `.title`; collect in encounter order for citations
-- Other types (e.g., `tool_use`, `tool_result`) — ignored
+- `"web_search_tool_result"` — contains a `content` list of search result objects; each object with a `url` attribute is collected as a citation; `title` is also extracted if present
+- Other types (e.g., `server_tool_use`) — ignored
 
 **Cost calculation:** `(input_tokens * 0.000003) + (output_tokens * 0.000015)` (Claude Sonnet 4.6 pricing as of 2026-04).
 

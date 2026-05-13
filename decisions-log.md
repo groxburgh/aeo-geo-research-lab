@@ -117,6 +117,30 @@ Format: each decision gets a dated entry with Decision, Alternative(s) Considere
 
 ---
 
+## 2026-05-13: run_exists excludes error rows; clear_error_run pattern for retry
+
+**Decision:** `run_exists` SQL now includes `AND error IS NULL`. A new `clear_error_run()` function deletes the error row (and its costs row) before the existence check, allowing the runner to retry cleanly.
+
+**Alternatives considered:**
+- Leave `run_exists` as-is and require manual SQL to clear error rows before re-run
+- Use `INSERT OR REPLACE` to overwrite error rows (risks silently overwriting valid data)
+
+**Rationale:** The TECH-SPEC says "a re-run after partial failure picks up where it left off" — error rows contradict this if they block retry. The `clear_error_run` + `run_exists` pattern preserves idempotency for successful rows while making error rows automatically retryable. Deleting cost rows for error runs is safe because all error runs have `cost_usd = 0.0` and do not affect the budget calculation.
+
+---
+
+## 2026-05-13: Anthropic SDK pinned to 0.56.0 (minimum for web search citation extraction)
+
+**Decision:** Upgrade `anthropic` from `0.49.0` to `0.56.0` in `requirements.txt`.
+
+**Alternatives considered:**
+- Stay on 0.49.0 and parse citations from inline text (fragile, unreliable)
+- Upgrade to latest (0.101.0) for maximum currency
+
+**Rationale:** SDK 0.49.0 has no typed classes for the block types the Anthropic API returns when using `web_search_20250305`: `ServerToolUseBlock`, `WebSearchToolResultBlock`, and `WebSearchResultBlock` were all added in 0.56.0. Without these types the SDK cannot correctly deserialise the response and citation extraction silently returns 0. Pinning to 0.56.0 (the minimum version with working support) rather than latest reduces the surface area for unexpected breaking changes in a research-integrity context where output stability matters. The SDK can be bumped further in a dedicated session if new API features are needed.
+
+---
+
 ## 2026-04-19: Notion as review gate only, not primary store
 
 **Decision:** Raw data lives in a SQLite database committed to the repo. Monthly reports are markdown files committed to the repo. Notion receives a summary post of each generated report as a human review gate before external announcement.

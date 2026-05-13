@@ -57,6 +57,7 @@ def run_sweep(db_path: str, prompts_path: str, month: str, budget_usd: float, en
                     circuit_fired = True
                     continue
 
+                db.clear_error_run(db_path, query_id, engine_name, run_number, month)
                 if db.run_exists(db_path, query_id, engine_name, run_number, month):
                     print(f"[SKIP] {query_id} {engine_name} run {run_number} already exists")
                     continue

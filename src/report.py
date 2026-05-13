@@ -8,6 +8,12 @@ from src import db
 
 _BUDGET_CAP = 40.0
 
+_INVALID_DOMAINS = frozenset({
+    "co.uk", "org.uk", "me.uk",
+    "com.au", "net.au", "org.au",
+    "co.jp", "co.nz", "co.za",
+})
+
 
 def _jaccard(a: set, b: set) -> float:
     union = a | b
@@ -62,7 +68,7 @@ def generate_report(db_path: str, month: str, reports_dir: str) -> str:
 
     for engine in engines_covered:
         total_runs = run_count_by_engine[engine]
-        domain_counts = cit_by_engine[engine]
+        domain_counts = {d: c for d, c in cit_by_engine[engine].items() if d not in _INVALID_DOMAINS}
         top = sorted(domain_counts.items(), key=lambda x: x[1], reverse=True)[:20]
         lines += [f"### {engine}", "", "| Domain | Citations | % of runs |", "|---|---|---|"]
         for domain, count in top:
@@ -90,6 +96,13 @@ def generate_report(db_path: str, month: str, reports_dir: str) -> str:
         f"**Cited by exactly 1 engine ({len(exactly_one)}):** {len(exactly_one)} domains",
         "",
     ]
+    zero_cit = [e for e in engines_covered if not cit_by_engine[e]]
+    if zero_cit:
+        lines.append(
+            f"_Note: {', '.join(zero_cit)} returned no citations this month. "
+            f"Overlap figures reflect {', '.join(e for e in engines_covered if cit_by_engine[e])} data only._"
+        )
+        lines.append("")
 
     # 5. Prompt stability section
     lines += ["## Prompt Stability Sub-Study", ""]
@@ -107,6 +120,14 @@ def generate_report(db_path: str, month: str, reports_dir: str) -> str:
                          if any(r["run_id"] == c["run_id"] and r["query_id"] == variant_id for r in runs)}
             j = _jaccard(c_domains, v_domains)
             lines.append(f"| {canonical_id} | {variant_id} | {j:.3f} |")
+        zero_cit = [e for e in engines_covered if not cit_by_engine[e]]
+        if zero_cit:
+            active = [e for e in engines_covered if cit_by_engine[e]]
+            lines.append("")
+            lines.append(
+                f"_Note: Jaccard scores reflect {', '.join(active)} citation data only. "
+                f"No citations were captured for {', '.join(zero_cit)} this month._"
+            )
         lines.append("")
 
     # 6. Model versions

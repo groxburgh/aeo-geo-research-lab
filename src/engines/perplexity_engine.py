@@ -78,7 +78,7 @@ class PerplexityEngine(Engine):
                 run_id=run_id,
                 query_id=query_id,
                 engine="perplexity",
-                model_version="unknown",
+                model_version="error:no-response",
                 run_number=run_number,
                 month=month,
                 prompt_sent=prompt,

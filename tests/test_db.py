@@ -1,9 +1,37 @@
 from __future__ import annotations
 
+import sqlite3
+
 import pytest
 
 from src import db
 from src.models import Citation, NormalizedResult
+
+
+def _make_result(*, error: str | None = None) -> NormalizedResult:
+    from uuid import uuid4
+    return NormalizedResult(
+        run_id=str(uuid4()),
+        query_id="q-001",
+        engine="chatgpt",
+        model_version="gpt-4o-2024-11-20",
+        run_number=1,
+        month="2026-04",
+        prompt_sent="Test prompt",
+        response_text="",
+        input_tokens=0,
+        output_tokens=0,
+        cost_usd=0.0,
+        ran_at="2026-04-01T02:00:00+00:00",
+        citations=[],
+        error=error,
+    )
+
+
+_QUERY = {
+    "id": "q-001", "topic": "Test", "prompt": "Test prompt",
+    "is_variant": False, "variant_of": None, "zone": "aeo-geo", "query_type": "informational",
+}
 
 
 @pytest.fixture
@@ -73,6 +101,31 @@ def test_run_exists_true_after_insert(tmp_db, sample_result):
     db.insert_query(tmp_db, query)
     db.insert_result(tmp_db, sample_result)
     assert db.run_exists(tmp_db, "q-001", "chatgpt", 1, "2026-04") is True
+
+
+def test_run_exists_false_for_error_row(tmp_db):
+    db.insert_query(tmp_db, _QUERY)
+    result = _make_result(error="API failed")
+    db.insert_result(tmp_db, result)
+    assert db.run_exists(tmp_db, result.query_id, result.engine, result.run_number, result.month) is False
+
+
+def test_clear_error_run_removes_error_row(tmp_db):
+    db.insert_query(tmp_db, _QUERY)
+    result = _make_result(error="API failed")
+    db.insert_result(tmp_db, result)
+    db.clear_error_run(tmp_db, result.query_id, result.engine, result.run_number, result.month)
+    conn = sqlite3.connect(tmp_db)
+    assert conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM costs").fetchone()[0] == 0
+    conn.close()
+
+
+def test_clear_error_run_noop_for_success(tmp_db, sample_result):
+    db.insert_query(tmp_db, _QUERY)
+    db.insert_result(tmp_db, sample_result)
+    db.clear_error_run(tmp_db, sample_result.query_id, sample_result.engine, sample_result.run_number, sample_result.month)
+    assert db.run_exists(tmp_db, sample_result.query_id, sample_result.engine, sample_result.run_number, sample_result.month) is True
 
 
 def test_insert_result_writes_all_tables(tmp_db, sample_result):

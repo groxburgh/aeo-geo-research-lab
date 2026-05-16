@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/check_logs_updated.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

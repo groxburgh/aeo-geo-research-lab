@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from urllib.parse import urlparse
 
 
 @dataclass
@@ -14,9 +13,8 @@ class Citation:
 
     @staticmethod
     def extract_domain(url: str) -> str:
-        hostname = urlparse(url).hostname or ""
-        parts = hostname.split(".")
-        return ".".join(parts[-2:]) if len(parts) >= 2 else hostname
+        from src.domain_normalizer import normalize_domain
+        return normalize_domain(url) or ""
 
 
 @dataclass

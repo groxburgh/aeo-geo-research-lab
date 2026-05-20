@@ -150,3 +150,41 @@ Format: each decision gets a dated entry with Decision, Alternative(s) Considere
 - No review gate (auto-publish on generation)
 
 **Rationale:** Structured research data belongs in a versioned database. Notion's strength is review and collaboration, which maps cleanly to the approve-before-announce workflow. Removing the human review step risks an automated report with a flaw being announced externally before the operator sees it.
+
+---
+
+## 2026-05-19: tldextract replaces hand-rolled eTLD+1 normalization
+
+**Decision:** Replace the `hostname.split(".")[-2:]` domain normalization in `Citation.extract_domain()` with `tldextract==5.3.1` using a vendored offline PSL cache.
+
+**Alternatives considered:**
+- Fix the split manually for known ccSLDs (allowlist approach)
+- `publicsuffix2` / `publicsuffixlist` libraries
+- Continue with `_INVALID_DOMAINS` blocklist in report.py
+
+**Rationale:** The hand-rolled split incorrectly collapses `bbc.co.uk → co.uk`, `guardian.co.uk → co.uk`, and all other ccSLDs — this was the root cause of `co.uk` and `org.uk` appearing as top cross-engine cited domains in the May 2026 report (a data quality failure). A blocklist in `report.py` is a band-aid that requires manual maintenance and has no coverage for `.com.au`, `.co.jp`, and dozens of other ccSLDs. `tldextract` is the canonical Python PSL library, actively maintained, and ships a bundled snapshot. The offline cache (`suffix_list_urls=()` + committed `.cache/tldextract/`) ensures month-to-month runs are byte-for-byte reproducible with no network dependency in GitHub Actions.
+
+---
+
+## 2026-05-19: Claude max_uses raised from 1 to 3 (calibration intent)
+
+**Decision:** `max_uses` for the `web_search_20250305` tool raised from 1 to 3 starting June 2026.
+
+**Alternatives considered:**
+- Keep max_uses=1 and document the ~10-citation ceiling as a methodological choice
+- Raise immediately to max_uses=5
+
+**Rationale:** Independent analysis of Claude's Brave-backed retrieval (BrightEdge, wire.wise-relations.com Claude Code analysis) converges on ~10 results per `web_search` invocation. With max_uses=1 this creates a hard ceiling of ~10 citations per query regardless of topic richness — directly limiting the citation diversity metric this observatory is designed to measure. Budget cost of raising to max_uses=3 is approximately $5/month additional at full invocation (531 searches × $0.010 = $5.31), well within the $40 cap. max_uses=5 is deferred until June calibration data shows whether citations scale with invocations. June 2026 will serve as the calibration baseline; if mean invocations per query are well below 3, further raising is unlikely to help.
+
+---
+
+## 2026-05-19: Quarantine pattern for bad runs; partial UNIQUE index for slot reuse
+
+**Decision:** Introduce a `quarantined` column and a `quarantine_reason` column on `runs`. Replace the inline `UNIQUE(query_id, engine, run_number, month)` constraint with a partial unique index `WHERE quarantined = 0`. Add `model_version` to the `run_exists()` predicate.
+
+**Alternatives considered:**
+- Delete bad rows (simpler, but destroys audit trail)
+- Keep the inline UNIQUE constraint and move bad rows to a separate archive table
+- Add `extraction_version` to the `run_exists()` predicate immediately
+
+**Rationale:** The May 2026 ChatGPT data (170 rows from the wrong model snapshot + 7 from a partial re-run) must not be silently mixed into cross-engine comparisons, but deleting them would make it impossible to explain the May report gap later. The quarantine pattern preserves the audit trail while making the data invisible to the pipeline and to report queries (via the `runs_active` view). The partial unique index (`WHERE quarantined = 0`) allows a quarantined row and a fresh replacement to coexist in the same slot — without this, any re-run after quarantine would fail with a UNIQUE constraint error. The `model_version` check in `run_exists()` makes the pipeline self-healing when a model pin changes: existing rows for the old model become invisible and are automatically re-fetched on the next run. `extraction_version` is added to the schema but deferred from the `run_exists()` predicate — adding it now would trigger a full re-run of all correct May Perplexity and Claude data, which is unnecessary.

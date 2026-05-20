@@ -199,6 +199,39 @@ May 2026 data showed 0 citations for ChatGPT (wrong model checkpoint, web search
 
 ---
 
+## 2026-05-19 (Session 10: Pipeline remediation — schema v2, tldextract, quarantine, max_uses)
+
+**What changed:**
+- `src/schema.sql`: Added `extraction_version`, `citations_extracted`, `quarantined`, `quarantine_reason` columns to `runs`. Replaced inline `UNIQUE` constraint with a partial unique index `WHERE quarantined = 0` (allowing a quarantined row and a fresh replacement to coexist in the same slot). Added `domain_v2` and `normalization_version` to `citations`. Added `runs_active` view (filters `quarantined = 0`).
+- `src/domain_normalizer.py`: New module. Wraps `tldextract.TLDExtract` with offline-safe config (`suffix_list_urls=()`, committed cache, bundled snapshot fallback). Exposes `normalize_domain(url) -> str | None` and `EXTRACTION_VERSION = "v2-tldextract-5.3"`. Correctly handles ccSLDs (`bbc.co.uk → bbc.co.uk`) and strips `co.uk`/`org.uk` bare-suffix artifacts to `None`.
+- `src/models.py`: `Citation.extract_domain()` now delegates to `normalize_domain()`. The `urlparse` split is gone.
+- `src/db.py`: `run_exists()` widened to check `quarantined=0` and `model_version` against `_CURRENT_MODELS` dict — rows from a wrong model snapshot are automatically invisible and will be re-fetched. New `quarantine_runs()` function. `insert_result()` now writes `extraction_version` and `citations_extracted` on every run, and `domain_v2` + `normalization_version` on every citation. All report-facing read functions (`get_runs_for_month`, `get_citations_for_month`) target `runs_active` view.
+- `src/report.py`: Removed `_INVALID_DOMAINS` frozenset (superseded by tldextract). Citation frequency and overlap tables now use `domain_v2` (falls back to legacy `domain` for pre-migration rows). Cross-engine overlap section dynamically labels by actual engine count (2-engine: "Cited by both engines"; n-engine: "Cited by all N engines"). Run index pre-built for O(1) citation→run lookup.
+- `src/engines/anthropic_engine.py`: `max_uses` raised from 1 to 3. Comment updated with monthly cost estimate (~$5 additional at max invocations).
+- `requirements.txt`: Added `tldextract==5.3.1`.
+- `.cache/tldextract/`: Vendored PSL snapshot committed to repo. Offline-safe; no network calls during GitHub Actions runs.
+- `.gitignore`: Documented that `.cache/tldextract/` is intentionally committed.
+- `scripts/migrate_v2.py`: New one-time migration script. Recreates `runs` table with new columns and partial index; adds `citations` columns; quarantines all 177 May 2026 ChatGPT rows (170 × gpt-4o-2024-08-06 + 7 × gpt-4o-2024-11-20 partial re-run); backfills `domain_v2` for all 2144 existing citations; creates `runs_active` view.
+- `tests/test_db.py`: Three new tests: `test_run_exists_false_when_model_version_differs`, `test_run_exists_false_when_quarantined`, `test_quarantine_runs_returns_row_count`.
+- `tests/test_domain_normalizer.py`: New file. 11 tests covering standard domains, subdomains, UK/AU ccSLDs, bare TLDs (→ None), empty inputs.
+- `tests/test_runner.py`: Fixed `_ENGINE_MODELS` dict in `_make_result` so mock runs use the current pinned model version per engine (required by new `run_exists` predicate).
+
+**Verification:**
+- `ruff check src/ tests/ scripts/` — clean ✓
+- `pytest` — 44/44 passed ✓
+- `python scripts/migrate_v2.py` — 177 rows quarantined, 2144 citations backfilled, 0 null domains ✓
+- `python run.py report` — May 2026 report regenerated ✓
+  - `co.uk` and `org.uk` artifact domains absent ✓
+  - "Engines covered: claude, perplexity" (ChatGPT correctly absent) ✓
+  - Cross-engine overlap now reads "Cited by both engines (58)" — 2-engine framing ✓
+
+**Next step:**
+- Commit all changes and push
+- June 2026 sweep is the first valid month for cross-engine comparison
+- After June run, calibrate Claude citation yield at `max_uses=3` vs the May `max_uses=1` baseline
+
+---
+
 ## 2026-05-13 (Session 8: Citation extraction bug fixes)
 
 **What changed:**

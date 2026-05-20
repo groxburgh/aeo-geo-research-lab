@@ -40,3 +40,5 @@ Thumbs.db
 # /data/observatory.db — the SQLite database is committed on purpose.
 #   It is the research artifact. Every commit is part of the public record.
 # /reports/*.md — monthly reports are committed on purpose.
+# /.cache/tldextract/ — vendored PSL snapshot for reproducible domain normalization.
+#   Pinning the cache ensures month-to-month runs use an identical snapshot.

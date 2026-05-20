@@ -8,16 +8,24 @@ from src import db
 
 _BUDGET_CAP = 40.0
 
-_INVALID_DOMAINS = frozenset({
-    "co.uk", "org.uk", "me.uk",
-    "com.au", "net.au", "org.au",
-    "co.jp", "co.nz", "co.za",
-})
-
 
 def _jaccard(a: set, b: set) -> float:
     union = a | b
     return len(a & b) / len(union) if union else 1.0
+
+
+def _domain(c: dict) -> str | None:
+    """Return the best available domain for a citation row.
+
+    Prefers domain_v2 (tldextract-normalized) when populated. Falls back to the
+    legacy domain column for rows that pre-date the v2 migration. Returns None for
+    rows where no valid domain could be extracted.
+    """
+    d = c.get("domain_v2")
+    if d:
+        return d
+    legacy = c.get("domain", "")
+    return legacy if legacy else None
 
 
 def generate_report(db_path: str, month: str, reports_dir: str) -> str:
@@ -59,48 +67,65 @@ def generate_report(db_path: str, month: str, reports_dir: str) -> str:
     lines += ["## Citation Frequency by Engine", ""]
     cit_by_engine: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     run_count_by_engine: dict[str, int] = defaultdict(int)
+    run_index = {r["run_id"]: r for r in runs}
     for r in runs:
         run_count_by_engine[r["engine"]] += 1
     for c in citations:
-        run = next((r for r in runs if r["run_id"] == c["run_id"]), None)
-        if run:
-            cit_by_engine[run["engine"]][c["domain"]] += 1
+        run = run_index.get(c["run_id"])
+        d = _domain(c)
+        if run and d:
+            cit_by_engine[run["engine"]][d] += 1
 
     for engine in engines_covered:
         total_runs = run_count_by_engine[engine]
-        domain_counts = {d: c for d, c in cit_by_engine[engine].items() if d not in _INVALID_DOMAINS}
-        top = sorted(domain_counts.items(), key=lambda x: x[1], reverse=True)[:20]
+        top = sorted(cit_by_engine[engine].items(), key=lambda x: x[1], reverse=True)[:20]
         lines += [f"### {engine}", "", "| Domain | Citations | % of runs |", "|---|---|---|"]
         for domain, count in top:
             pct = (count / total_runs * 100) if total_runs else 0
             lines.append(f"| {domain} | {count} | {pct:.1f}% |")
+        if not top:
+            lines.append("_No citations recorded for this engine this month._")
         lines.append("")
 
     # 4. Cross-engine domain overlap
     lines += ["## Cross-Engine Domain Overlap", ""]
     domain_engines: dict[str, set[str]] = defaultdict(set)
     for c in citations:
-        run = next((r for r in runs if r["run_id"] == c["run_id"]), None)
-        if run:
-            domain_engines[c["domain"]].add(run["engine"])
+        run = run_index.get(c["run_id"])
+        d = _domain(c)
+        if run and d:
+            domain_engines[d].add(run["engine"])
 
-    all_three = sorted(d for d, e in domain_engines.items() if len(e) == 3)
-    exactly_two = sorted(d for d, e in domain_engines.items() if len(e) == 2)
+    n_engines = len(engines_covered)
+    all_n = sorted(d for d, e in domain_engines.items() if len(e) == n_engines)
+    exactly_two = sorted(d for d, e in domain_engines.items() if len(e) == 2 and n_engines > 2)
     exactly_one = sorted(d for d, e in domain_engines.items() if len(e) == 1)
 
-    lines += [
-        f"**Cited by all 3 engines ({len(all_three)}):** {', '.join(all_three) or 'none'}",
-        "",
-        f"**Cited by exactly 2 engines ({len(exactly_two)}):** {', '.join(exactly_two) or 'none'}",
-        "",
-        f"**Cited by exactly 1 engine ({len(exactly_one)}):** {len(exactly_one)} domains",
-        "",
-    ]
+    if n_engines >= 3:
+        lines += [
+            f"**Cited by all {n_engines} engines ({len(all_n)}):** {', '.join(all_n) or 'none'}",
+            "",
+            f"**Cited by exactly 2 engines ({len(exactly_two)}):** {', '.join(exactly_two) or 'none'}",
+            "",
+            f"**Cited by exactly 1 engine ({len(exactly_one)}):** {len(exactly_one)} domains",
+            "",
+        ]
+    elif n_engines == 2:
+        lines += [
+            f"**Cited by both engines ({len(all_n)}):** {', '.join(all_n) or 'none'}",
+            "",
+            f"**Cited by exactly 1 engine ({len(exactly_one)}):** {len(exactly_one)} domains",
+            "",
+        ]
+    else:
+        lines += ["_Cross-engine overlap requires at least 2 engines with citation data._", ""]
+
     zero_cit = [e for e in engines_covered if not cit_by_engine[e]]
     if zero_cit:
+        active = [e for e in engines_covered if cit_by_engine[e]]
         lines.append(
             f"_Note: {', '.join(zero_cit)} returned no citations this month. "
-            f"Overlap figures reflect {', '.join(e for e in engines_covered if cit_by_engine[e])} data only._"
+            f"Overlap figures reflect {', '.join(active)} data only._"
         )
         lines.append("")
 
@@ -114,13 +139,20 @@ def generate_report(db_path: str, month: str, reports_dir: str) -> str:
         lines += ["| Canonical | Variant | Jaccard (domain sets) |", "|---|---|---|"]
         for variant_id in sorted(variant_ids):
             canonical_id = variant_id[:-3]  # strip "-v2"
-            c_domains = {c["domain"] for c in citations
-                         if any(r["run_id"] == c["run_id"] and r["query_id"] == canonical_id for r in runs)}
-            v_domains = {c["domain"] for c in citations
-                         if any(r["run_id"] == c["run_id"] and r["query_id"] == variant_id for r in runs)}
+            c_domains = {
+                _domain(c) for c in citations
+                if _domain(c) and any(
+                    r["run_id"] == c["run_id"] and r["query_id"] == canonical_id for r in runs
+                )
+            }
+            v_domains = {
+                _domain(c) for c in citations
+                if _domain(c) and any(
+                    r["run_id"] == c["run_id"] and r["query_id"] == variant_id for r in runs
+                )
+            }
             j = _jaccard(c_domains, v_domains)
             lines.append(f"| {canonical_id} | {variant_id} | {j:.3f} |")
-        zero_cit = [e for e in engines_covered if not cit_by_engine[e]]
         if zero_cit:
             active = [e for e in engines_covered if cit_by_engine[e]]
             lines.append("")
@@ -146,7 +178,7 @@ def generate_report(db_path: str, month: str, reports_dir: str) -> str:
         "| query_id | engine | run | cost_usd | citations | error |",
         "|---|---|---|---|---|---|",
     ]
-    cit_count = defaultdict(int)
+    cit_count: dict[str, int] = defaultdict(int)
     for c in citations:
         cit_count[c["run_id"]] += 1
     for r in runs:

@@ -8,13 +8,20 @@ from src import db, runner
 from src.models import Citation, NormalizedResult
 
 
+_ENGINE_MODELS = {
+    "chatgpt": "gpt-4o-2024-11-20",
+    "claude": "claude-sonnet-4-6",
+    "perplexity": "sonar",
+}
+
+
 def _make_result(query_id: str, engine: str, run_number: int, month: str) -> NormalizedResult:
     from uuid import uuid4
     return NormalizedResult(
         run_id=str(uuid4()),
         query_id=query_id,
         engine=engine,
-        model_version="test-model",
+        model_version=_ENGINE_MODELS[engine],
         run_number=run_number,
         month=month,
         prompt_sent="test",

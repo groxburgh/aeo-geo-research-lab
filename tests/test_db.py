@@ -157,3 +157,47 @@ def test_get_month_cost_sum(tmp_db, sample_result):
     db.insert_result(tmp_db, sample_result)
     cost = db.get_month_cost(tmp_db, "2026-04")
     assert abs(cost - 0.000075) < 1e-9
+
+
+def test_run_exists_false_when_model_version_differs(tmp_db):
+    """A run recorded with an old model snapshot must not block a fresh run."""
+    db.insert_query(tmp_db, _QUERY)
+    old_model_result = _make_result()
+    # Manually write a row with the old model version
+    import sqlite3
+    from src.domain_normalizer import EXTRACTION_VERSION
+    conn = sqlite3.connect(tmp_db)
+    conn.execute(
+        """INSERT INTO runs
+           (run_id, query_id, engine, model_version, run_number, month,
+            prompt_sent, response_text, input_tokens, output_tokens,
+            cost_usd, ran_at, error, extraction_version, citations_extracted)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (old_model_result.run_id, "q-001", "chatgpt", "gpt-4o-2024-08-06",
+         1, "2026-04", "Test prompt", "", 0, 0, 0.0,
+         "2026-04-01T02:00:00+00:00", None, EXTRACTION_VERSION, 0),
+    )
+    conn.commit()
+    conn.close()
+    # run_exists must return False because the stored model doesn't match the current pin
+    assert db.run_exists(tmp_db, "q-001", "chatgpt", 1, "2026-04") is False
+
+
+def test_run_exists_false_when_quarantined(tmp_db):
+    """A quarantined row must not satisfy run_exists."""
+    db.insert_query(tmp_db, _QUERY)
+    result = _make_result()
+    db.insert_result(tmp_db, result)
+    assert db.run_exists(tmp_db, "q-001", "chatgpt", 1, "2026-04") is True
+    db.quarantine_runs(tmp_db, "chatgpt", "2026-04", "test quarantine")
+    assert db.run_exists(tmp_db, "q-001", "chatgpt", 1, "2026-04") is False
+
+
+def test_quarantine_runs_returns_row_count(tmp_db):
+    """quarantine_runs must return the number of rows it marked."""
+    db.insert_query(tmp_db, _QUERY)
+    db.insert_result(tmp_db, _make_result())
+    count = db.quarantine_runs(tmp_db, "chatgpt", "2026-04", "test")
+    assert count == 1
+    # Second call on already-quarantined rows returns 0
+    assert db.quarantine_runs(tmp_db, "chatgpt", "2026-04", "test again") == 0

@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 INPUT_COST_PER_TOKEN = 0.000003    # Claude Sonnet 4.6 pricing 2026-04
 OUTPUT_COST_PER_TOKEN = 0.000015
-WEB_SEARCH_COST = 0.010            # $10 per 1000 searches
+WEB_SEARCH_COST = 0.010            # $10 per 1000 searches; max_uses=3 adds ~$5/month at 177 query-runs
 
 _MAX_RETRIES = 3
 _RETRY_BASE_DELAY = 5.0  # seconds; doubles each attempt: 5s, 10s, 20s
@@ -33,7 +33,7 @@ class AnthropicEngine(Engine):
                 try:
                     response = self._client.messages.create(
                         model="claude-sonnet-4-6",
-                        tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 1}],
+                        tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
                         messages=[{"role": "user", "content": prompt}],
                         max_tokens=1500,
                     )

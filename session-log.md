@@ -275,3 +275,28 @@ The previous fixtures were written to match the broken extraction code rather th
 **Next step:**
 - Commit and push, then trigger `workflow_dispatch` to run the May 2026 sweep
 - After run completes, verify three checkpoint commits appear in git log and Perplexity + ChatGPT data is in repo before Claude finishes
+
+---
+
+## 2026-06-23 (Session 11: Pre-run audit and June 2026 sweep unblocking)
+
+**What changed:**
+- `.github/workflows/monthly-sweep.yml`: Added `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true` to top-level `env` block — opts into Node.js 24 before GitHub's forced cutover on 2026-06-16 (already in effect; without this the actions/checkout@v4 and actions/setup-python@v5 steps emit deprecation warnings)
+- `scripts/patch_fk_refs.py`: New one-time patch script. Recreated `citations` and `costs` tables with correct `REFERENCES runs(run_id)`. Root cause: SQLite 3.26.0+ automatically rewrites FK references in sibling tables when `ALTER TABLE x RENAME TO y` is executed. `migrate_v2.py` renamed `runs → runs_old`, so SQLite silently updated both child tables to reference `runs_old`. After `DROP TABLE runs_old`, the FKs were dangling — causing `sqlite3.OperationalError: no such table: main.runs_old` whenever `PRAGMA foreign_keys = ON` triggered a FK check. Patch confirmed: 2144 citations and 531 costs rows intact after fix.
+- `data/observatory.db`: FK references in citations and costs corrected (runs_old → runs).
+
+**Pre-run audit findings:**
+- June 2026 starts at $0 spend; ~$25-30 projected for first full 3-engine run
+- All 177 May ChatGPT runs quarantined (wrong model checkpoint); June is first valid 3-engine month
+- Claude produces 0 citations for all 18 co-* canonical queries — confirmed as real research signal (no web search invocation, not an extraction bug)
+- `citations_extracted` column is 0 for all May Claude rows — migration backfill gap; does not affect June data quality
+- GitHub secrets `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` were stale; Greg updated them in repo settings
+
+**Verification:**
+- `scripts/patch_fk_refs.py` run locally: citations FK = 'runs' ✓, costs FK = 'runs' ✓, 2144 citations and 531 costs rows intact ✓
+- ruff not re-run (no src/ changes this session)
+
+**Next step:**
+- Commit: `git add data/observatory.db .github/workflows/monthly-sweep.yml scripts/patch_fk_refs.py session-log.md`
+- Push and re-trigger `workflow_dispatch` for the June 2026 sweep
+- After run: `python run.py report` to generate reports/2026-06.md (first month with all 3 engines)

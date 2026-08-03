@@ -60,7 +60,7 @@ The query set is stored in `/prompts/prompts.yaml` and is version-controlled. An
 
 **Perplexity** — Sonar API. Model: `sonar` (exact version recorded per run). Citations extracted from the `citations` array returned alongside the answer.
 
-**Claude** — Anthropic Messages API with the web search tool. Model: `claude-sonnet-4-6` (exact version recorded per run). Citations extracted from `web_search_tool_result` content blocks (containing nested search result objects) in the API response. Web search capped at 1 invocation per query (`max_uses: 1`).
+**Claude** — Anthropic Messages API with the web search tool. Model: `claude-sonnet-4-6` (exact version recorded per run). Citations extracted from `web_search_tool_result` content blocks (containing nested search result objects) in the API response. Web search capped at 3 invocations per query (`max_uses: 3`) from the June 2026 sweep onward; the May 2026 sweep ran with `max_uses: 1`, which imposed a ceiling of roughly 10 citations per query (see Version History 1.2 and the decisions log entry dated 2026-05-19).
 
 ### Excluded Engines
 
@@ -132,13 +132,11 @@ Each engine returns citations in a different format. The pipeline normalizes the
 
 ### Domain Normalization
 
-The `domain` field stored per citation is eTLD+1, computed in Python from the raw URL:
-1. Parse URL with `urllib.parse.urlparse` to extract hostname
-2. Take the last two dot-separated segments of the hostname
+From the June 2026 sweep onward, domains are normalized to eTLD+1 with `tldextract` 5.3.1 using a vendored offline Public Suffix List cache (no network dependency at run time). The result is stored in `domain_v2`, and every citation row carries a `normalization_version` (`v2-tldextract-5.3` for current data). The legacy `domain` column is retained unchanged for provenance; `domain_v2` is the authoritative column for all analysis and reporting, and `report.py` prefers it wherever populated.
 
-Example: `www.blog.hbr.org` → `hbr.org`
+Example: `www.blog.hbr.org` resolves to `hbr.org`; `www.bbc.co.uk` resolves to `bbc.co.uk`.
 
-**Documented limitation:** Country-code second-level domains (e.g., `bbc.co.uk`) are not handled correctly by this method — they resolve to `co.uk` rather than `bbc.co.uk`. A future version may add `tldextract` to resolve this. Until then, affected domains are identified by inspection and noted in reports.
+**Legacy method (May 2026 data):** the v1 method took the last two dot-separated segments of the hostname after parsing with `urllib.parse.urlparse`. It collapsed country-code second-level domains incorrectly (`bbc.co.uk` resolved to `co.uk`), which is why `co.uk` and `org.uk` appear in the May 2026 report. The tldextract migration (decisions log, 2026-05-19) resolved this for all subsequent sweeps.
 
 ### Citation Position
 
@@ -212,3 +210,5 @@ Findings are reported without selection: null results and months with no signifi
 |---|---|---|
 | 1.0 | TBD (first run date) | Initial methodology. 50–60 queries, three engines, three runs per query per engine. |
 | 1.1 | 2026-05-13 | Updated citation extraction descriptions to match actual API response structures. Added conflict-of-interest disclosure. Added max_uses: 1 note for Claude. Updated ChatGPT model to gpt-4o-2024-11-20. |
+| 1.2 | 2026-05-19 | Domain normalization migrated to tldextract 5.3.1 with an offline PSL cache (normalization_version v2-tldextract-5.3); domain_v2 added as the authoritative column, legacy domain retained for provenance. Claude max_uses raised from 1 to 3, effective the June 2026 sweep. Quarantine pattern introduced (quarantined and quarantine_reason columns, partial unique index for slot reuse). Applied from the June 2026 sweep onward; recorded here retroactively on 2026-08-04. |
+| 1.3 | 2026-08-04 | Reporting metric corrected: leaderboards previously divided citation appearances by run count under a "% of runs" header, overstating every share. Primary metric is now distinct runs citing, with appearances retained as a secondary column. Run Summary section added (valid, error, citing and zero-citation runs, min and max citations per run). Per-engine Jaccard added alongside the pooled figure in the Prompt Stability Sub-Study. Reports for 2026-06, 2026-07 and 2026-08 regenerated with the corrected metric. July 2026 Perplexity zero-citation runs disclosed rather than quarantined (see decisions log, 2026-08-04). |

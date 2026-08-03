@@ -188,3 +188,28 @@ Format: each decision gets a dated entry with Decision, Alternative(s) Considere
 - Add `extraction_version` to the `run_exists()` predicate immediately
 
 **Rationale:** The May 2026 ChatGPT data (170 rows from the wrong model snapshot + 7 from a partial re-run) must not be silently mixed into cross-engine comparisons, but deleting them would make it impossible to explain the May report gap later. The quarantine pattern preserves the audit trail while making the data invisible to the pipeline and to report queries (via the `runs_active` view). The partial unique index (`WHERE quarantined = 0`) allows a quarantined row and a fresh replacement to coexist in the same slot — without this, any re-run after quarantine would fail with a UNIQUE constraint error. The `model_version` check in `run_exists()` makes the pipeline self-healing when a model pin changes: existing rows for the old model become invisible and are automatically re-fetched on the next run. `extraction_version` is added to the schema but deferred from the `run_exists()` predicate — adding it now would trigger a full re-run of all correct May Perplexity and Claude data, which is unnecessary.
+
+---
+
+## 2026-08-04: Reporting metric corrected; distinct runs citing replaces appearances per run
+
+**Decision:** The Citation Frequency leaderboards in `report.py` now report, per domain, the number of distinct valid runs whose answer cited the domain at least once, with the share of valid runs as the primary percentage. Raw citation appearances are retained as a secondary column. All three affected reports (2026-06, 2026-07, 2026-08) are regenerated with the corrected metric. A Run Summary section is added to every report, and error runs are excluded from denominators and from the Model Versions listing.
+
+**Alternatives considered:**
+- Leave the shipped reports untouched and publish an errata note
+- Correct the metric in written articles only and leave the generator as it was
+- Remove the appearances count entirely
+
+**Rationale:** The previous implementation counted citation appearances and divided by run count under a "% of runs" header. One answer citing three URLs from the same domain counted three times. The distortion was large: the August 2026 report claimed Perplexity cited linkedin.com in 98.9% of runs, where the true figure is 63.3% (175 appearances across 112 of 177 runs). It also inverted at least one leaderboard: ChatGPT's printed top source for August, google.com at 14.7%, is five runs (2.8%), most of them Google Maps company-lookup links. The June 2026 report has publicly disagreed with the June article since publication, because the article's figures were derived directly from the database on the distinct-runs method. Correcting the generator and regenerating the reports in git preserves the full correction history, which is worth more to this project than an unblemished-looking file listing. Appearances stay as a secondary column because within-answer repetition is real signal, provided it is labelled as what it is. The error was found through independent re-derivation of the August data from the raw database, which is the review pattern this repository exists to make possible.
+
+---
+
+## 2026-08-04: July 2026 Perplexity zero-citation runs disclosed, not quarantined
+
+**Decision:** The 66 July 2026 Perplexity runs that returned substantive answers with an empty citations array remain valid rows. They are disclosed in the July report's Run Summary rather than quarantined. Consistency figures derived from July Perplexity data may be reported conditional on citing runs, provided the unconditional zero-citation rate is disclosed alongside.
+
+**Alternatives considered:**
+- Quarantine the 66 runs with a reason string, mirroring the May 2026 precedent
+- Re-run the affected queries retroactively and replace the rows
+
+**Rationale:** The quarantine pattern exists for instrument-side failures: a wrong model snapshot, an extraction miss. These 66 rows are neither. The extraction worked and the API genuinely returned answers without citations; a Sonar user in that window received the same. The zeros were interleaved through the sweep in 41 separate streaks rather than one block, consistent with per-request degradation on the service side. Removing correctly recorded engine behaviour because it disturbs a trend line would be survivorship editing. The point generalises: per-run citation counts across June, July and August are pinned against three different ceilings (maximum 15, then 10, then 20, with 144 of 177 August runs at exactly 20 and none below 14). The request payload sends no result-count parameter and the pipeline code is byte-identical across all three sweeps, so these ceilings are server-side configuration. A quarantine standard strict enough to remove July's regime would also have to remove August's, which reduces to absurdity. All three months stay in, each disclosed with its distribution; per-run citation volume is treated as configuration-sensitive and is not compared across months as a behavioural metric. A retroactive re-run was rejected because the July collection window cannot be re-entered; replacement rows would measure a different service state and be labelled as the original.
